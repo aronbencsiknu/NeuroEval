@@ -2,9 +2,221 @@
 # SPDX-License-Identifier: CC0-1.0
 
 import cocotb
-from cocotb.triggers import FallingEdge, Timer, Edge
+from cocotb.triggers import Timer, Edge
 import random
 from itertools import combinations
+import torch
+import snntorch as snn
+from snntorch import spikeplot as splt
+import matplotlib.pyplot as plt
+import torch
+import snntorch.spikeplot as splt
+import matplotlib.pyplot as plt
+import torch
+import hashlib
+
+from python.model import SpikingNet
+from python.train import Trainer
+from python.options import Options
+from python.graph import Graph
+from python.mapping import Mapping
+
+def python_test():
+    opt = Options()
+    # Initialize the network
+    net = SpikingNet(opt)
+
+    # -------------------------------------------------
+
+    torch.manual_seed(42)
+    sample_data = torch.randn(opt.num_steps, opt.num_inputs)
+
+    indices_to_lock = {
+        "indices" : ((0, 1), (90, 50)),
+        "layers"  : ("lif1","lif1")}
+    
+    # init inference
+    try:
+        prediction, _ = net(sample_data, indices_to_lock["indices"])
+    except:
+        prediction, _ = net(sample_data, indices_to_lock["indices"])
+
+    print("Updated weights:\n", net.lif1.recurrent.weight.data)
+
+    # -------------------------------------------------
+
+    gp = Graph(opt.num_steps, opt.num_inputs)
+    gp.export_model(net)
+    gp.extract_edges()
+    gp.process_graph()
+    gp.plot_graph()
+
+    # -------------------------------------------------
+
+    mapping = Mapping(net, opt.num_steps, opt.num_inputs, opt.core_capacity, indices_to_lock)
+    #mem_potential_sizes = mapping.get_membrane_potential_sizes()
+    for layer_name, size in mapping.mem_potential_sizes.items():
+        print(f"Layer: {layer_name}, Number of neurons: {size}")
+
+    for layer_name, allocations in mapping.core_allocation.items():
+        print(f"Layer: {layer_name}")
+        for core_id, start_idx, end_idx in allocations:
+            print(f"  Core {core_id}: start index = {start_idx}, end index = {end_idx}")
+
+    print(mapping.core_allocation)
+    print(mapping.NIR_to_cores)
+    print(mapping.neuron_to_core)
+    print(mapping.buffer_map)
+
+    # -------------------------------------------------
+
+    trainer = Trainer(net, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=100)
+    net = trainer.train(opt.device)
+
+    # -------------------------------------------------
+
+    # Dictionary to store spikes from each layer
+
+    spike_record = {}
+    hooks = []
+
+    def reset_spike_record_and_hooks():
+        global spike_record, hooks
+
+        # Clear the spike_record dictionary
+        spike_record = {}
+
+        # Remove existing hooks if they are already registered
+        if 'hooks' in globals():
+            for hook in hooks:
+                hook.remove()
+                hooks = []
+
+    # Function to create a hook that records spikes
+    def create_spike_hook(layer_name):
+        def hook(module, input, output):
+            if layer_name not in spike_record:
+                spike_record[layer_name] = []
+            spike_record[layer_name].append(output[0].detach().cpu())
+        return hook
+
+    reset_spike_record_and_hooks()
+
+    # Attach hooks automatically to all Leaky layers
+    for name, module in net.named_modules():
+        if isinstance(module, snn.Leaky) or isinstance(module, snn.RSynaptic):
+            hooks.append(module.register_forward_hook(create_spike_hook(name)))
+
+    # -------------------------------------------------
+
+    # Dictionary to store spikes from each layer
+
+    spike_record = {}
+    hooks = []
+
+    # Generate random input data
+    indices = [1]
+    inputs = trainer.xor_inputs[indices]
+
+    # Generate spike trains
+    inputs = trainer.generate_spike_train(inputs, opt.num_steps).to(opt.device)
+
+    output, _ = net(inputs)
+
+    # Convert spike records to tensors for easier analysis
+    for layer_name in spike_record:
+        spike_record[layer_name] = torch.squeeze(torch.stack(spike_record[layer_name]))
+
+    print(spike_record['lif1'].shape)
+
+    # # Plot spike rasters for all layers
+    # num_layers = len(spike_record)
+    # fig, ax = plt.subplots(num_layers, 1, figsize=(10, 4 * num_layers))
+
+
+    fig = plt.figure(facecolor="w", figsize=(10, 5))
+    ax = fig.add_subplot(111)
+
+    print(output.shape)
+
+    #  s: size of scatter points; c: color of scatter points
+    splt.raster(output.squeeze(1), ax, s=1.5, c="black")
+    plt.title("Output Layer")
+    plt.xlabel("Time step")
+    plt.ylabel("Neuron Number")
+    plt.show()
+
+    # -------------------------------------------------
+
+    if 'hooks' in globals():
+        for hook in hooks:
+            hook.remove()
+            hooks = []
+
+    # -------------------------------------------------
+
+    def bundle_target_cores(source_core, target_cores, min_reps):
+        res = []
+        new_target_cores = []
+        for idx, (target_core, reps) in enumerate(target_cores):
+            res.append(target_core)
+            if reps - min_reps > 0:
+                new_target_cores.append((target_core, reps - min_reps))
+
+        return res, new_target_cores
+
+    def remove_skipped_packets(source_core, target_cores, buffer_map):
+        new_target_cores = []
+        for idx, (target_core, reps) in enumerate(target_cores):
+            if str(source_core)+str(target_core) in buffer_map:
+                new_target_cores.append((target_core, reps - int(buffer_map[str(source_core)+str(target_core)])))
+            else:
+                new_target_cores.append((target_core, reps))
+
+        return new_target_cores
+
+    routing_matrices = {}
+    routing_map = {}
+
+    for layer_name, size in mapping.mem_potential_sizes.items():
+        routing_matrix = torch.zeros((opt.num_steps, size))
+        for idx in range(size):
+            if layer_name not in routing_matrices:
+                routing_id = layer_name +"-"+ str(idx)
+                source_core = mapping.neuron_to_core[routing_id]
+
+                downstream_nodes = list(gp.graph.successors(layer_name))
+
+                target_cores = []
+                for downstream_node in downstream_nodes:
+                    if downstream_node != "output":
+                        target_cores.extend(mapping.NIR_to_cores[downstream_node])
+
+                # Remove skipped packets
+                target_cores = remove_skipped_packets(source_core, target_cores, mapping.buffer_map)
+                bundled_core_to_cores = []
+                while len(target_cores) > 0:
+                    _, minimum = target_cores[0]
+                    for target_core, reps in target_cores:
+                        if reps < minimum:
+                            minimum = reps
+
+                    bcc, target_cores = bundle_target_cores(source_core, target_cores, minimum)
+                    bundled_core_to_cores.append((bcc, minimum))
+                packet_information = []
+                for bcc, reps in bundled_core_to_cores:
+                    packet_information.append((source_core, bcc, reps))
+                    h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
+                    routing_map[h] = packet_information
+                    for t in range(opt.num_steps):
+                        routing_matrix[t][idx] = h
+
+        routing_matrices[layer_name] = routing_matrix
+
+    print(routing_matrices['lif1'])
+    print(routing_map)
+
+
 
 ADDR_W = 5
 MSG_W = 10
@@ -108,6 +320,8 @@ def concatenate_message_address(address_list, message_list, direction):
 
 @cocotb.test()
 async def replicate_data_in_e_signal(dut):
+
+    python_test()
 
     await init(dut)
 
