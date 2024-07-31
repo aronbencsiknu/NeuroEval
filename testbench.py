@@ -1,6 +1,3 @@
-# This file is public domain, it can be freely copied without restrictions.
-# SPDX-License-Identifier: CC0-1.0
-
 import cocotb
 from cocotb.triggers import Timer, Edge
 import random
@@ -241,94 +238,7 @@ N_MASK = 0b01000
 W_MASK = 0b00100
 S_MASK = 0b00010
 
-packetCounterE = 0
-packetCounterN = 0
-packetCounterW = 0
-packetCounterS = 0
-packetCounterL1 = 0
-counterRecieved = 0
-
-address_lists = {
-        EAST: [],
-        NORTH: [],
-        WEST: [],
-        SOUTH: [],
-        L1: []
-    }
-    
-message_lists = {
-        EAST: [],
-        NORTH: [],
-        WEST: [],
-        SOUTH: [],
-        L1: []
-    }
-
 expanded_packets = []
-
-# def generate_packets(direction):
-
-#     direction_zero_bit_map = {
-#         EAST: 4,
-#         NORTH: 3,
-#         WEST: 2,
-#         SOUTH: 1,
-#         L1: 0
-#     }
-
-#     for i in range(NUM_PACKETS_P_INJ):
-#         if direction in direction_zero_bit_map:
-#             zero_bit = direction_zero_bit_map[direction]
-#             address_lists[direction].append(generate_address(zero_bit, valid_combinations))
-#             message_lists[direction].append(generate_message())
-
-#     return address_lists, message_lists
-
-# def generate_message():
-#     # Generate a random number in the range [0, 2^MSG_W - 1]
-#     message = random.randint(0, (1 << MSG_W) - 1)
-    
-#     # Convert the message to a binary string, zero-padded to MSG_W bits
-#     message_bits = f'{message:0{MSG_W}b}'
-
-#     print("HELLO????? ",type(message_bits))
-    
-#     return message_bits
-
-# def generate_valid_address_combinations(addr_w):
-#     valid_combinations = []
-#     for num_ones in range(2, addr_w + 1):  # from exactly two '1's to addr_w '1's
-#         for combo in combinations(range(addr_w), num_ones):
-#             bits = ['0'] * addr_w
-#             for bit in combo:
-#                 bits[bit] = '1'
-#             valid_combinations.append(int(''.join(bits),2))
-#     return valid_combinations
-
-# valid_combinations = generate_valid_address_combinations(ADDR_W)
-
-# def generate_address(zero_bit, valid_combinations):
-#     # Select a random address from valid_combinations
-#     address = valid_combinations[random.randint(0, len(valid_combinations) - 1)]
-#     #address = int("11111", base=2)
-#     # Convert address to binary list of bits
-#     address_bits = list(f'{address:0{ADDR_W}b}')
-    
-#     # Set the specified bit to zero
-#     address_bits[zero_bit] = '0'
-
-#     address = ''.join(address_bits)
-
-#     print("HELLOHELLO: ",type(address))
-    
-#     return address
-
-# def concatenate_message_address(address_list, message_list, direction):
-#     concatenated_list = []
-#     for i in range(NUM_PACKETS_P_INJ):
-#         concatenated_list.append(message_list[direction][i] + address_list[direction][i])
-#     return concatenated_list
-
 
 @cocotb.test()
 async def replicate_data_in_e_signal(dut):
