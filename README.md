@@ -1,4 +1,4 @@
-# Benchmarking Framework for Neuromorphic Network-on-Chips
+# NeuroEval Benchmarking Framework for Neuromorphic Network-on-Chips
 
 Requires the Verilog files of the TaBuLa NoC in the root directory!
 
