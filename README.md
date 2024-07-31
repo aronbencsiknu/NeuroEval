@@ -1,4 +1,4 @@
-# NeuroEval Benchmarking Framework for Neuromorphic Network-on-Chips
+#A Benchmarking Framework for Neuromorphic Network-on-Chips
 ## About
 Master's thesis project
 ## Instructions
