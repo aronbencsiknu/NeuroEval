@@ -17,6 +17,8 @@ class Trainer:
         self.xor_inputs = torch.tensor([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=torch.float32)
         self.xor_targets = torch.tensor([[0], [1], [1], [0]], dtype=torch.float32)
         self.spike_record = {}
+
+        print("\n----- TRAINING -----\n")
     
     def generate_spike_train(self, input_data, num_steps, spike_prob=0.5):
         spike_train = torch.zeros((num_steps, input_data.size(0), input_data.size(1)))
@@ -25,7 +27,7 @@ class Trainer:
 
         return spike_train
 
-    def train(self, device):
+    def train(self, device, dut=None):
         self.net = self.net.to(device)
         self.xor_inputs = self.xor_inputs
         self.xor_targets = self.xor_targets
@@ -54,7 +56,12 @@ class Trainer:
 
             # Print loss
             if (epoch + 1) % 10 == 0:
-                print(f"Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.4f}")
+                temp = f"Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.4f}"
+                
+                if dut is not None:
+                    dut._log.info(temp)
+                else:
+                    print(temp)
 
         return self.net
 

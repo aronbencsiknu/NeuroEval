@@ -12,7 +12,7 @@ class Options(object):
         self.num_outputs = 2
         self.num_steps = 100
         self.core_capacity = 50
-        self.num_epochs = 150
+        self.num_epochs = 20
         self.lr = 1e-4
         self.target_fr = 0.5
         self.bs = 16

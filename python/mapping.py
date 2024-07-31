@@ -38,6 +38,35 @@ class Mapping:
 
     def set_core_capacity(self, cc):
         self.core_capacity = cc
+
+    def log(self, dut=None):
+
+        print("\n----- MAPPING -----\n")
+
+        for layer_name, size in self.mem_potential_sizes.items():
+            temp = f"Layer: {layer_name}, Number of neurons: {size}"
+            if dut is not None:
+                    dut._log.info(temp)
+            else:
+                print(temp)
+
+        for layer_name, allocations in self.core_allocation.items():
+            temp = f"Layer: {layer_name}"
+            if dut is not None:
+                    dut._log.info(temp)
+            else:
+                print(temp)
+            for core_id, start_idx, end_idx in allocations:
+                temp = f"  Core {core_id}: start index = {start_idx}, end index = {end_idx}"
+                if dut is not None:
+                    dut._log.info(temp)
+                else:
+                    print(temp)
+
+        # print(self.core_allocation)
+        # print(self.NIR_to_cores)
+        # print(self.neuron_to_core)
+        # print(self.buffer_map)
     
     def _allocate_neurons_to_cores(self):
         core_allocation = {}

@@ -16,6 +16,29 @@ class Graph:
         self.final_edges = None
         self.final_nodes = None
         self.graph = None
+        self.recurrent_edges = None
+
+    def log(self, dut=None):
+        temp = "\n----- GRAPH -----\n"
+        if dut is not None:
+            dut._log.info(temp)
+        else:
+            print(temp)
+        temp = "Recurrent edges:", self.recurrent_edges
+        if dut is not None:
+            dut._log.info(temp)
+        else:
+            print(temp)
+        temp = "Nodes:", self.final_nodes
+        if dut is not None:
+            dut._log.info(temp)
+        else:
+            print(temp)
+        temp = "Edges:", self.final_edges
+        if dut is not None:
+            dut._log.info(temp)
+        else:
+            print(temp)
 
     def export_model(self, net):
         self.net = net
@@ -73,9 +96,6 @@ class Graph:
             if (v, u) in recurrent_edges:
                 recurrent_edges.remove((v, u))
 
-        # Print the recurrent edges
-        print("Recurrent edges:", recurrent_edges)
-
         # Process each recurrent edge
         for u, v in recurrent_edges:
             if G.has_edge(u, v):
@@ -100,10 +120,7 @@ class Graph:
             }
             nx.relabel_nodes(G, mapping, copy=False)  # Relabel the nodes in place
 
-        # Print final nodes and edges
-        print("Nodes:", G.nodes())
-        print("Edges:", G.edges())
-
         self.graph = G
         self.final_nodes = G.nodes()
         self.final_edges = G.edges()
+        self.recurrent_edges = recurrent_edges

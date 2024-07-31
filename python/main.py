@@ -90,8 +90,6 @@ def remove_skipped_packets(source_core, target_cores, buffer_map):
 # -------METHODS-----------
 # -------------------------
 
-
-
 def main():
     # Dictionary to store spikes from each layer
 
