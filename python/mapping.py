@@ -2,17 +2,18 @@ import torch
 import snntorch as snn  # Ensure this module is correctly imported
 
 class Mapping:
-    def __init__(self, net, num_steps, num_inputs, core_capacity, indices_to_lock):
+    def __init__(self, net, num_steps, num_inputs, indices_to_lock):
         self.num_steps = num_steps
         self.num_inputs = num_inputs
-        self.core_capacity = core_capacity
+        self.core_capacity = None
         self.net = net
+        self.indices_to_lock = indices_to_lock
 
-        self.mem_potential_sizes = self.get_membrane_potential_sizes()
-        self.core_allocation, self.NIR_to_cores, self.neuron_to_core = self.allocate_neurons_to_cores()
-        self.buffer_map = self.map_buffers(indices_to_lock)
+        self.mem_potential_sizes = self._get_membrane_potential_sizes()
+        # self.core_allocation, self.NIR_to_cores, self.neuron_to_core = self.allocate_neurons_to_cores()
+        # self.buffer_map = self.map_buffers(indices_to_lock)
     
-    def get_membrane_potential_sizes(self):
+    def _get_membrane_potential_sizes(self):
         if self.net is None:
             raise ValueError("Network model has not been set. Please call set_network first.")
         
@@ -31,16 +32,22 @@ class Mapping:
 
         return sizes
     
-    def allocate_neurons_to_cores(self):
+    def map_neurons(self):
+        self.core_allocation, self.NIR_to_cores, self.neuron_to_core = self._allocate_neurons_to_cores()
+        self.buffer_map = self._map_buffers(self.indices_to_lock)
+
+    def set_core_capacity(self, cc):
+        self.core_capacity = cc
+    
+    def _allocate_neurons_to_cores(self):
         core_allocation = {}
         NIR_to_cores = {}
         neuron_to_core = {}
 
-        total_neurons = sum(self.mem_potential_sizes.values())
-
         core_id = 0
         core_start_index = 0
         current_core_neurons = 0
+        full_capacity_reached = False
 
         layer_names = list(self.mem_potential_sizes.keys())
         last_layer_name = layer_names[-1]
@@ -53,7 +60,9 @@ class Mapping:
                     raise Exception("Output layer does not fit in one core!")
 
                 # Ensure the last layer is in the same core
-                core_id += 1
+                
+                if not full_capacity_reached:
+                    core_id += 1
                 core_start_index = 0
                 current_core_neurons = 0
                 layer_start_index = core_start_index
@@ -65,6 +74,7 @@ class Mapping:
                 break
 
             while num_neurons > 0:
+                full_capacity_reached = False
                 available_space = self.core_capacity - current_core_neurons
                 neurons_to_allocate = min(num_neurons, available_space)
 
@@ -85,6 +95,7 @@ class Mapping:
                 num_neurons -= neurons_to_allocate
 
                 if current_core_neurons == self.core_capacity:
+                    full_capacity_reached = True
                     core_id += 1
                     core_start_index = 0
                     current_core_neurons = 0
@@ -93,7 +104,7 @@ class Mapping:
 
         return core_allocation, NIR_to_cores, neuron_to_core
     
-    def map_buffers(self, indices_to_lock):
+    def _map_buffers(self, indices_to_lock):
         mapped_buffer = {}
         for indices in indices_to_lock['indices']:
             temp = ""
@@ -106,29 +117,3 @@ class Mapping:
                 mapped_buffer[temp] += 1
 
         return mapped_buffer
-
-# Example usage:
-# num_steps = 10
-# num_inputs = 5
-# core_capacity = 100  # Example core capacity
-# net = ...  # Define or load your network model here
-# indices_to_lock = ...  # Define indices to lock
-
-# mapping = Mapping(num_steps, num_inputs, core_capacity)
-# mapping.set_network(net)
-# mem_potential_sizes = mapping.get_membrane_potential_sizes()
-# for layer_name, size in mem_potential_sizes.items():
-#     print(f"Layer: {layer_name}, Number of neurons: {size}")
-
-# core_allocation, NIR_to_cores, neuron_to_core = mapping.allocate_neurons_to_cores(mem_potential_sizes)
-# print(core_allocation)
-# print(NIR_to_cores)
-# print(neuron_to_core)
-
-# for layer_name, allocations in core_allocation.items():
-#     print(f"Layer: {layer_name}")
-#     for core_id, start_idx, end_idx in allocations:
-#         print(f"  Core {core_id}: start index = {start_idx}, end index = {end_idx}")
-
-# buffer_map = mapping.map_buffers(indices_to_lock, neuron_to_core)
-# print(buffer_map)

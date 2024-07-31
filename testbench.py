@@ -14,6 +14,7 @@ import snntorch.spikeplot as splt
 import matplotlib.pyplot as plt
 import torch
 import hashlib
+import math
 
 from python.model import SpikingNet
 from python.train import Trainer
@@ -22,6 +23,9 @@ from python.graph import Graph
 from python.mapping import Mapping
 
 def python_test():
+
+    # -------------------------------------------------
+
     opt = Options()
     # Initialize the network
     net = SpikingNet(opt)
@@ -53,7 +57,16 @@ def python_test():
 
     # -------------------------------------------------
 
-    mapping = Mapping(net, opt.num_steps, opt.num_inputs, opt.core_capacity, indices_to_lock)
+    mapping = Mapping(net, opt.num_steps, opt.num_inputs, indices_to_lock)
+
+    total_neurons = sum(mapping.mem_potential_sizes.values())
+
+    core_capacity = max(math.ceil((total_neurons - opt.num_outputs) / (opt.num_cores - 1)), opt.num_outputs)
+
+    mapping.set_core_capacity(core_capacity)
+
+    mapping.map_neurons()
+    
     #mem_potential_sizes = mapping.get_membrane_potential_sizes()
     for layer_name, size in mapping.mem_potential_sizes.items():
         print(f"Layer: {layer_name}, Number of neurons: {size}")
@@ -70,7 +83,13 @@ def python_test():
 
     # -------------------------------------------------
 
-    trainer = Trainer(net, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=100)
+    trainer = Trainer(net, 
+                      num_epochs=opt.num_epochs, 
+                      learning_rate=opt.lr, 
+                      target_frequency=opt.target_fr, 
+                      batch_size=opt.bs, 
+                      num_steps=opt.num_steps)
+    
     net = trainer.train(opt.device)
 
     # -------------------------------------------------
@@ -155,19 +174,21 @@ def python_test():
 
     # -------------------------------------------------
 
-    def bundle_target_cores(source_core, target_cores, min_reps):
+    def bundle_target_cores(target_cores, min_reps):
         res = []
         new_target_cores = []
-        for idx, (target_core, reps) in enumerate(target_cores):
+        for target_core, reps in target_cores:
             res.append(target_core)
             if reps - min_reps > 0:
                 new_target_cores.append((target_core, reps - min_reps))
 
         return res, new_target_cores
 
-    def remove_skipped_packets(source_core, target_cores, buffer_map):
+    def remove_unnecessary_packets(source_core, target_cores, buffer_map):
         new_target_cores = []
-        for idx, (target_core, reps) in enumerate(target_cores):
+        for target_core, reps in target_cores:
+            if source_core == target_core:
+                continue
             if str(source_core)+str(target_core) in buffer_map:
                 new_target_cores.append((target_core, reps - int(buffer_map[str(source_core)+str(target_core)])))
             else:
@@ -178,45 +199,60 @@ def python_test():
     routing_matrices = {}
     routing_map = {}
 
-    for layer_name, size in mapping.mem_potential_sizes.items():
+    for layer_name, size in mapping.mem_potential_sizes.items(): # a way to get the layer names
         routing_matrix = torch.zeros((opt.num_steps, size))
         for idx in range(size):
-            if layer_name not in routing_matrices:
-                routing_id = layer_name +"-"+ str(idx)
-                source_core = mapping.neuron_to_core[routing_id]
 
-                downstream_nodes = list(gp.graph.successors(layer_name))
+            if layer_name in routing_matrices:
+                continue
 
-                target_cores = []
-                for downstream_node in downstream_nodes:
-                    if downstream_node != "output":
-                        target_cores.extend(mapping.NIR_to_cores[downstream_node])
+            routing_id = layer_name +"-"+ str(idx)
+            source_core = mapping.neuron_to_core[routing_id]
 
-                # Remove skipped packets
-                target_cores = remove_skipped_packets(source_core, target_cores, mapping.buffer_map)
-                bundled_core_to_cores = []
-                while len(target_cores) > 0:
-                    _, minimum = target_cores[0]
-                    for target_core, reps in target_cores:
-                        if reps < minimum:
-                            minimum = reps
+            downstream_nodes = list(gp.graph.successors(layer_name))
 
-                    bcc, target_cores = bundle_target_cores(source_core, target_cores, minimum)
-                    bundled_core_to_cores.append((bcc, minimum))
-                packet_information = []
-                for bcc, reps in bundled_core_to_cores:
-                    packet_information.append((source_core, bcc, reps))
-                    h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
-                    routing_map[h] = packet_information
-                    for t in range(opt.num_steps):
-                        routing_matrix[t][idx] = h
+            target_cores = []
+            for downstream_node in downstream_nodes:
+                if downstream_node != "output":
+                    target_cores.extend(mapping.NIR_to_cores[downstream_node])
+
+            # Remove skipped packets
+            target_cores = remove_unnecessary_packets(source_core, target_cores, mapping.buffer_map)
+
+            # bundle packets (bundle several unicast packets into multicast)
+            bundled_core_to_cores = []
+            while len(target_cores) > 0:
+                _, minimum = target_cores[0]
+                for _, reps in target_cores:
+                    if reps < minimum:
+                        minimum = reps
+
+                bcc, target_cores = bundle_target_cores(target_cores, minimum)
+                bundled_core_to_cores.append((bcc, minimum))
+
+            packet_information = []
+            for bcc, reps in bundled_core_to_cores:
+                packet_information.append((source_core, bcc, reps))
+                h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
+                routing_map[h] = packet_information
+                for t in range(opt.num_steps):
+                    routing_matrix[t][idx] = h
 
         routing_matrices[layer_name] = routing_matrix
 
     print(routing_matrices['lif1'])
     print(routing_map)
 
+    exp = torch.mul(routing_matrices['lif1'], spike_record['lif1'])
 
+    temp = exp[1]
+    non_zero_values = temp[temp != 0]
+
+    packets = []
+    for hashes in non_zero_values:
+        packets.append(routing_map[int(hashes)])
+
+    print(packets)
 
 ADDR_W = 5
 MSG_W = 10
@@ -453,4 +489,3 @@ async def init(dut):
 
 
     await Timer(150, units='ps')
-
