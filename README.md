@@ -2,7 +2,7 @@
 ## About
 Master's thesis project
 ## Instructions
-Requires the Verilog files of the TaBuLa NoC in the root directory!
+Requires the Verilog files of the TaBuLa NoC (not provided) in the root directory!
 
 Uses Cocotb to drive the Questa simulation of the NoC model. Cocotb is configured to launch from a python runner instead of a Makefile.
 
