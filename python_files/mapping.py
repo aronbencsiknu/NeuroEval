@@ -50,23 +50,23 @@ class Mapping:
             else:
                 print(temp)
 
-        for layer_name, allocations in self.core_allocation.items():
-            temp = f"Layer: {layer_name}"
-            if dut is not None:
-                    dut._log.info(temp)
-            else:
-                print(temp)
-            for core_id, start_idx, end_idx in allocations:
-                temp = f"  Core {core_id}: start index = {start_idx}, end index = {end_idx}"
-                if dut is not None:
-                    dut._log.info(temp)
-                else:
-                    print(temp)
+        # for layer_name, allocations in self.core_allocation.items():
+        #     temp = f"Layer: {layer_name}"
+        #     if dut is not None:
+        #             dut._log.info(temp)
+        #     else:
+        #         print(temp)
+        #     for core_id, start_idx, end_idx in allocations:
+        #         temp = f"  Core {core_id}: start index = {start_idx}, end index = {end_idx}"
+        #         if dut is not None:
+        #             dut._log.info(temp)
+        #         else:
+        #             print(temp)
 
-        # print(self.core_allocation)
-        # print(self.NIR_to_cores)
-        # print(self.neuron_to_core)
-        # print(self.buffer_map)
+        print("CORE ALLOCATION:",self.core_allocation)
+        print("NIR TO CORES:",self.NIR_to_cores)
+        #print("NEURON TO CORE:",self.neuron_to_core)
+        print("BUFFER MAP:",self.buffer_map)
     
     def _allocate_neurons_to_cores(self):
         core_allocation = {}
@@ -97,7 +97,7 @@ class Mapping:
                 layer_start_index = core_start_index
                 layer_end_index = layer_start_index + num_neurons - 1
                 core_allocation[layer_name] = [(core_id, layer_start_index, layer_end_index)]
-                NIR_to_cores[layer_name] = [(core_id, layer_end_index - layer_start_index)]
+                NIR_to_cores[layer_name] = [(core_id, layer_end_index + 1 - layer_start_index)]
                 for neuron_id in range(layer_start_index, layer_end_index + 1):
                     neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id
                 break
@@ -114,7 +114,7 @@ class Mapping:
                     NIR_to_cores[layer_name] = []
 
                 core_allocation[layer_name].append((core_id, layer_start_index, layer_end_index))
-                NIR_to_cores[layer_name].append((core_id, layer_end_index - layer_start_index))
+                NIR_to_cores[layer_name].append((core_id, layer_end_index + 1 - layer_start_index))
 
                 for neuron_id in range(layer_start_index, layer_end_index + 1):
                     neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id

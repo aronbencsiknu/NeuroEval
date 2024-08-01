@@ -46,16 +46,65 @@ def bundle_target_cores(target_cores, min_reps):
   return res, new_target_cores
 
 def remove_unnecessary_packets(source_core, target_cores, buffer_map):
-  new_target_cores = []
-  for target_core, reps in target_cores:
-    if source_core == target_core:
-      continue
-    if str(source_core)+str(target_core) in buffer_map:
-      new_target_cores.append((target_core, reps - int(buffer_map[str(source_core)+str(target_core)])))
-    else:
-      new_target_cores.append((target_core, reps))
+    new_target_cores = []
+    #inter_core_packets = []
+    for target_core, reps in target_cores:
+        
+        skipped_connection = str(source_core)+str(target_core)
 
-  return new_target_cores
+        # # remove inter-core communication
+        # if source_core == target_core:
+        #     if skipped_connection in buffer_map:
+        #         inter_core_packets.append((target_core, reps - int(buffer_map[skipped_connection])))
+        #     else:
+        #         inter_core_packets.append((target_core, reps))
+
+        # else:
+        #     if skipped_connection in buffer_map:
+        #         new_target_cores.append((target_core, reps - int(buffer_map[skipped_connection])))
+        #     else:
+        #         new_target_cores.append((target_core, reps))
+
+        # remove inter-core communication
+        if source_core == target_core:
+            continue
+
+        if skipped_connection in buffer_map:
+                new_target_cores.append((target_core, reps - int(buffer_map[skipped_connection])))
+        else:
+            new_target_cores.append((target_core, reps))
+
+    return new_target_cores
+
+def count_target_neurons(source_core, target_cores, buffer_map):
+    # num_lr_dest = []
+    # num_sr_dest = []
+    num_lr_dest_neurons = 0
+    num_sr_dest_neurons = 0
+
+    how_many_to_subtract_sr = 0
+    how_many_to_subtract_lr = 0
+
+    for target_core, reps in target_cores:
+        
+        skipped_connection = str(source_core)+str(target_core)
+
+        # remove inter-core communication
+        if source_core == target_core:
+            if skipped_connection in buffer_map:
+                how_many_to_subtract_sr += int(buffer_map[skipped_connection])
+            
+            #num_sr_dest.append((target_core, reps))
+            num_sr_dest_neurons += reps
+
+        else:
+            if skipped_connection in buffer_map:
+                how_many_to_subtract_lr += int(buffer_map[skipped_connection])
+            
+            #num_lr_dest.append((target_core, reps))
+            num_lr_dest_neurons += reps
+
+    return num_lr_dest_neurons, num_sr_dest_neurons, how_many_to_subtract_lr, how_many_to_subtract_sr
 
 def dot_product(routing_matrices, spike_record, routing_map):
     packets = []
@@ -153,3 +202,28 @@ def generate_message(message_width=10):
     message_bits = f'{message:0{message_width}b}'
     
     return message_bits
+
+def calculate_lr_sr_conns(mapping, graph):
+    
+    num_long_range_conns = 0
+    num_short_range_conns = 0
+    
+    for layer_name, num_source in mapping.mem_potential_sizes.items():
+        source_sum = 0
+        sum_target_lr = 0
+        sum_target_sr = 0
+        for source_core, reps in mapping.NIR_to_cores[layer_name]:
+            source_sum += reps
+            downstream_nodes = list(graph.graph.successors(layer_name))
+            target_cores = []
+            for downstream_node in downstream_nodes:
+                if downstream_node != "output":
+                    target_cores = mapping.NIR_to_cores[downstream_node]
+                lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(source_core, target_cores, mapping.buffer_map)
+
+                
+                num_long_range_conns += reps * lr_target_nerons - lr_subtract
+                num_short_range_conns += reps * sr_target_neurons - sr_subtract
+
+    return num_long_range_conns, num_short_range_conns
+    

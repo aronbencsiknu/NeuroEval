@@ -22,7 +22,7 @@ class SpikingNet(torch.nn.Module):
         self.lif2 = snn.Leaky(beta=0.9)
 
         self.num_steps = opt.num_steps
-
+        
     def forward(self, x, indices_to_lock = None):
 
         def zero_and_lock_weights(layer, indices):

@@ -28,7 +28,7 @@ def generate_packets(dut):
     net = utils.init_network(net, sample_data)
 
     indices_to_lock = {
-        "indices" : ((0, 1), (90, 50)),
+        "indices" : ((1,2),(3,90)),
         "layers"  : ("lif1","lif1")}
 
     # -------------------------------------------------
@@ -37,7 +37,7 @@ def generate_packets(dut):
     gp.export_model(net)
     gp.extract_edges()
     gp.process_graph()
-    gp.plot_graph()
+    #gp.plot_graph()
     gp.log(dut)
 
     # -------------------------------------------------
@@ -52,7 +52,9 @@ def generate_packets(dut):
 
     # -------------------------------------------------
 
-    trainer = Trainer(net, 
+    trainer = Trainer(net,
+                      mapping,
+                      gp,
                       num_epochs=v.num_epochs, 
                       learning_rate=v.lr, 
                       target_frequency=v.target_fr, 
@@ -168,8 +170,6 @@ def generate_packets(dut):
                 packet_information.append((source_core, bcc, reps))
                 h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
                 routing_map[h] = packet_information
-                # for t in range(opt.num_steps):
-                #     routing_matrix[t][idx] = h
 
                 routing_matrix[idx] = h
 
