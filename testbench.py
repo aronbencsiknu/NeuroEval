@@ -1,258 +1,30 @@
 import cocotb
 from cocotb.triggers import Timer, Edge
-import random
-from itertools import combinations
-import torch
-import snntorch as snn
-from snntorch import spikeplot as splt
-import matplotlib.pyplot as plt
-import torch
-import snntorch.spikeplot as splt
-import matplotlib.pyplot as plt
-import torch
-import hashlib
-import math
 
-from python.model import SpikingNet
-from python.train import Trainer
-from python.options import Options
-from python.graph import Graph
-from python.mapping import Mapping
-from python import utils 
+from python_files.options import Variables
+from python_files.options import Specs
+from python_files import generate_packets as gp
 
-def python_test(dut):
-
-    # -------------------------------------------------
-
-    torch.manual_seed(42)
-    opt = Options()
-
-    # Initialize the network
-    net = SpikingNet(opt)
-
-    # -------------------------------------------------
-
-    sample_data = torch.randn(opt.num_steps, opt.num_inputs)
-    net = utils.init_network(net, sample_data)
-
-    indices_to_lock = {
-        "indices" : ((0, 1), (90, 50)),
-        "layers"  : ("lif1","lif1")}
-
-    # -------------------------------------------------
-
-    gp = Graph(opt.num_steps, opt.num_inputs)
-    gp.export_model(net)
-    gp.extract_edges()
-    gp.process_graph()
-    gp.plot_graph()
-    gp.log(dut)
-
-    # -------------------------------------------------
-
-    mapping = Mapping(net, opt.num_steps, opt.num_inputs, indices_to_lock)
-    total_neurons = sum(mapping.mem_potential_sizes.values())
-    core_capacity = max(math.ceil((total_neurons - opt.num_outputs) / (opt.num_cores - 1)), opt.num_outputs)
-    mapping.set_core_capacity(core_capacity)
-    mapping.map_neurons()
-    
-    mapping.log(dut)
-
-    # -------------------------------------------------
-
-    trainer = Trainer(net, 
-                      num_epochs=opt.num_epochs, 
-                      learning_rate=opt.lr, 
-                      target_frequency=opt.target_fr, 
-                      batch_size=opt.bs, 
-                      num_steps=opt.num_steps)
-    
-    net = trainer.train(opt.device, dut)
-
-    # -------------------------------------------------
-
-    # Dictionary to store spikes from each layer
-
-    spike_record = {}
-    hooks = []
-
-    def reset_spike_record_and_hooks():
-        global spike_record, hooks
-
-        # Clear the spike_record dictionary
-        spike_record = {}
-
-        # Remove existing hooks if they are already registered
-        if 'hooks' in globals():
-            for hook in hooks:
-                hook.remove()
-                hooks = []
-
-    # Function to create a hook that records spikes
-    def create_spike_hook(layer_name):
-        def hook(module, input, output):
-            if layer_name not in spike_record:
-                spike_record[layer_name] = []
-            spike_record[layer_name].append(output[0].detach().cpu())
-        return hook
-
-    reset_spike_record_and_hooks()
-
-    # Attach hooks automatically to all Leaky layers
-    for name, module in net.named_modules():
-        if isinstance(module, snn.Leaky) or isinstance(module, snn.RSynaptic):
-            hooks.append(module.register_forward_hook(create_spike_hook(name)))
-
-    #net, hooks = utils.attach_hooks(net)
-
-    # -------------------------------------------------
-
-    # Dictionary to store spikes from each layer
-
-    spike_record = {}
-    hooks = []
-
-    # Generate random input data
-    indices = [1]
-    inputs = trainer.xor_inputs[indices]
-
-    # Generate input
-    inputs = trainer.generate_spike_train(inputs, opt.num_steps).to(opt.device)
-
-    # Record spikes
-    _, _ = net(inputs)
-
-    # Convert spike records to tensors for easier analysis
-    for layer_name in spike_record:
-        spike_record[layer_name] = torch.squeeze(torch.stack(spike_record[layer_name]))
-
-    # -------------------------------------------------
-
-    if 'hooks' in globals():
-        for hook in hooks:
-            hook.remove()
-            hooks = []
-
-    # -------------------------------------------------
-
-    routing_matrices = {}
-    routing_map = {}
-
-    for layer_name, size in mapping.mem_potential_sizes.items(): # a way to get the layer names
-        # routing_matrix = torch.zeros((opt.num_steps, size))
-        routing_matrix = torch.zeros((size))
-        for idx in range(size):
-
-            if layer_name in routing_matrices:
-                continue
-
-            routing_id = layer_name +"-"+ str(idx)
-            source_core = mapping.neuron_to_core[routing_id]
-
-            downstream_nodes = list(gp.graph.successors(layer_name))
-
-            target_cores = []
-            for downstream_node in downstream_nodes:
-                if downstream_node != "output":
-                    target_cores.extend(mapping.NIR_to_cores[downstream_node])
-
-            # Remove skipped packets
-            target_cores = utils.remove_unnecessary_packets(source_core, target_cores, mapping.buffer_map)
-
-            # bundle packets (bundle several unicast packets into multicast)
-            bundled_core_to_cores = []
-            while len(target_cores) > 0:
-                _, minimum = target_cores[0]
-                for _, reps in target_cores:
-                    if reps < minimum:
-                        minimum = reps
-
-                bcc, target_cores = utils.bundle_target_cores(target_cores, minimum)
-                bundled_core_to_cores.append((bcc, minimum))
-
-            packet_information = []
-
-            for bcc, reps in bundled_core_to_cores:
-                packet_information.append((source_core, bcc, reps))
-                h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
-                routing_map[h] = packet_information
-                # for t in range(opt.num_steps):
-                #     routing_matrix[t][idx] = h
-
-                routing_matrix[idx] = h
-
-        routing_matrices[layer_name] = routing_matrix
-
-    packets = []
-
-    for t in range(opt.num_steps):
-        packets_in_ts = []
-        for layer_name, _ in mapping.mem_potential_sizes.items():
-
-            p = utils.dot_product(routing_matrices[layer_name], 
-                                        spike_record[layer_name][t], 
-                                        routing_map,
-                                        )
-            
-            packets_in_ts.extend(p)
-
-        packets.append(packets_in_ts)
-
-    #final_packets_list = []
-    final_packets_dict = {
-        EAST: [],
-        NORTH: [],
-        WEST: [],
-        SOUTH: [],
-        L1: []
-    }
-    expanded_packets_list = []
-
-    for packet in packets:
-
-        print(len(packet))
-        temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict)
-
-        print("LEN",idx,len(expanded_packets))
-        
-        #final_packets_list.append(packets)
-        expanded_packets_list.append(expanded_packets)
-
-        for key in final_packets_dict:
-            if key in temp:
-                final_packets_dict[key].append(temp[key])
-
-    return final_packets_dict, expanded_packets_list
-
-ADDR_W = 5
-MSG_W = 10
-EAST, NORTH, WEST, SOUTH, L1 = range(5)
-NUM_PACKETS_P_INJ = 20
+v = Variables()
+s = Specs()
 
 num_sent_messages = 0
 num_recieved_messages = 0
-
-SID = 0b00001
-E_MASK = 0b10000
-N_MASK = 0b01000
-W_MASK = 0b00100
-S_MASK = 0b00010
-
 expanded_packets = []
 
 @cocotb.test()
 async def replicate_data_in_e_signal(dut):
 
-    packets, expanded_packets = python_test(dut=None)
+    packets, expanded_packets = gp.generate_packets(dut=None)
 
     await init(dut)
 
     # Monitor output ports
-    cocotb.start_soon(monitor_output(dut, dut.DataOutE, "EAST"))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutN, "NORTH"))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutW, "WEST"))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutS, "SOUTH"))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutL1, "LOCAL"))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutE, "EAST", expanded_packets))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutN, "NORTH", expanded_packets))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutW, "WEST", expanded_packets))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutS, "SOUTH", expanded_packets))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutL1, "LOCAL", expanded_packets))
 
     # Monitor input ports
     cocotb.start_soon(monitor_input(dut, dut.DataInE, "EAST"))
@@ -268,12 +40,12 @@ async def replicate_data_in_e_signal(dut):
     cocotb.start_soon(back_ack(dut, dut.AckOutS, dut.ReqOutS))
     cocotb.start_soon(back_ack(dut, dut.AckOutL1, dut.ReqOutL1))
 
-    cocotb.start_soon(stimulus(dut, dut.DataInE, dut.ReqInE, dut.AckInE, packets[EAST][10]))
-    cocotb.start_soon(stimulus(dut, dut.DataInN, dut.ReqInN, dut.AckInN, packets[NORTH][10]))
-    cocotb.start_soon(stimulus(dut, dut.DataInW, dut.ReqInW, dut.AckInW, packets[WEST][10]))
-    cocotb.start_soon(stimulus(dut, dut.DataInS, dut.ReqInS, dut.AckInS, packets[SOUTH][10]))
-    cocotb.start_soon(stimulus(dut, dut.DataInL1, dut.ReqInL1, dut.AckInL1, packets[L1][10]))
-
+    # provide packets
+    cocotb.start_soon(stimulus(dut, dut.DataInE, dut.ReqInE, dut.AckInE, packets[s.EAST][10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInN, dut.ReqInN, dut.AckInN, packets[s.NORTH][10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInW, dut.ReqInW, dut.AckInW, packets[s.WEST][10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInS, dut.ReqInS, dut.AckInS, packets[s.SOUTH][10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInL1, dut.ReqInL1, dut.AckInL1, packets[s.L1][10]))
 
     await Timer(50000000, units='ns') # Expected sim end
 
@@ -295,6 +67,7 @@ async def stimulus(dut, data,  input_req, ack, packets):
     while counter < num_elements:
         
         if ack.value == input_req.value:
+        #if True:
             num_sent_messages += 1
             await Timer(150, units='ps') # STABILITY
             input = int(packets[counter], base=2)
@@ -307,7 +80,7 @@ async def stimulus(dut, data,  input_req, ack, packets):
         else:
             await Edge(ack)
 
-async def monitor_output(dut,dout, name):
+async def monitor_output(dut,dout, name, expanded_packets):
     global num_recieved_messages
     while True:
         await Edge(dout)
@@ -315,6 +88,8 @@ async def monitor_output(dut,dout, name):
         string = "RECIEVED : " + name
         dut._log.info(string)
         dut._log.info(dout.value)
+        if dout.value in expanded_packets:
+            pass
         print()
 
 async def monitor_input(dut, din, name):
@@ -362,10 +137,10 @@ async def init(dut):
     dut.DataInS.value = 0b000000000000000
     dut.DataInL1.value = 0b000000000000000
 
-    dut.SID.value = SID # L1
-    dut.E_MASK.value = E_MASK
-    dut.W_MASK.value = W_MASK
-    dut.N_MASK.value = N_MASK
-    dut.S_MASK.value = S_MASK
+    dut.SID.value = s.SID # L1
+    dut.E_MASK.value = s.E_MASK
+    dut.W_MASK.value = s.W_MASK
+    dut.N_MASK.value = s.N_MASK
+    dut.S_MASK.value = s.S_MASK
 
     await Timer(500, units='ps')

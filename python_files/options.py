@@ -1,7 +1,7 @@
 import torch
 import argparse
 
-class Options(object):
+class Variables(object):
     def __init__(self):
         # self.parser = argparse.ArgumentParser()
         # self.initialized = False
@@ -19,6 +19,19 @@ class Options(object):
         self.num_cores = 5
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+class Specs(object):
+    def __init__(self):
+        self.ADDR_W = 5
+        self.MSG_W = 10
+        self.EAST, self.NORTH, self.WEST, self.SOUTH, self.L1 = range(5)
+        self.NUM_PACKETS_P_INJ = 20
+
+        self.SID = 0b00001
+        self.E_MASK = 0b10000
+        self.N_MASK = 0b01000
+        self.W_MASK = 0b00100
+        self.S_MASK = 0b00010
 
     # def add_args(self):
 
