@@ -202,10 +202,7 @@ def generate_packets(dut):
 
     for packet in packets:
 
-        print(len(packet))
         temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict)
-
-        print("LEN",idx,len(expanded_packets))
         
         #final_packets_list.append(packets)
         expanded_packets_list.append(expanded_packets)

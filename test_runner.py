@@ -9,7 +9,7 @@ from pathlib import Path
 from cocotb.runner import get_runner
 
 
-def test_my_design_runner():
+def tb_runner():
     sim = os.getenv("SIM", "questa")
 
     proj_path = Path(__file__).resolve().parent
@@ -26,4 +26,4 @@ def test_my_design_runner():
 
 
 if __name__ == "__main__":
-    test_my_design_runner()
+    tb_runner()

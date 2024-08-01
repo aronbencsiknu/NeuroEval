@@ -13,18 +13,24 @@ num_recieved_messages = 0
 expanded_packets = []
 
 @cocotb.test()
-async def replicate_data_in_e_signal(dut):
+async def testbench(dut):
+
+    global expanded_packets
 
     packets, expanded_packets = gp.generate_packets(dut=None)
 
     await init(dut)
 
+    
+    timestep = 10 # temporary
+
     # Monitor output ports
-    cocotb.start_soon(monitor_output(dut, dut.DataOutE, "EAST", expanded_packets))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutN, "NORTH", expanded_packets))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutW, "WEST", expanded_packets))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutS, "SOUTH", expanded_packets))
-    cocotb.start_soon(monitor_output(dut, dut.DataOutL1, "LOCAL", expanded_packets))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutE, "EAST", timestep))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutN, "NORTH", timestep))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutW, "WEST", timestep))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutS, "SOUTH", timestep))
+    cocotb.start_soon(monitor_output(dut, dut.DataOutL1, "LOCAL", timestep))
+
 
     # Monitor input ports
     cocotb.start_soon(monitor_input(dut, dut.DataInE, "EAST"))
@@ -49,9 +55,12 @@ async def replicate_data_in_e_signal(dut):
 
     await Timer(50000000, units='ns') # Expected sim end
 
-    dut._log.info(num_sent_messages)
-    dut._log.info(num_recieved_messages)
-    dut._log.info(len(expanded_packets[10]))
+    string = "Sent packets:"+ str(num_sent_messages)
+    dut._log.info(string)
+    string = "Recieved packets:"+ str(num_recieved_messages)
+    dut._log.info(string)
+    string = "Packets not delivered:"+ str(len(expanded_packets[timestep]))
+    dut._log.info(string)
     dut._log.info("TEST COMPLETED")
     
 
@@ -80,17 +89,19 @@ async def stimulus(dut, data,  input_req, ack, packets):
         else:
             await Edge(ack)
 
-async def monitor_output(dut,dout, name, expanded_packets):
+async def monitor_output(dut,dout, name, timestep):
     global num_recieved_messages
+    global expanded_packets
     while True:
         await Edge(dout)
         num_recieved_messages += 1
         string = "RECIEVED : " + name
-        dut._log.info(string)
-        dut._log.info(dout.value)
-        if dout.value in expanded_packets:
-            pass
-        print()
+        # dut._log.info(string)
+        # dut._log.info(dout.value)
+        if dout.value in expanded_packets[timestep]:
+            expanded_packets[timestep].remove(dout.value)
+        else:
+            dut._log.info("OUT PACKET NOT FOUND")
 
 async def monitor_input(dut, din, name):
     global num_sent_messages
@@ -98,9 +109,9 @@ async def monitor_input(dut, din, name):
         await Edge(din)
         #num_sent_messages += 1
         string = "SENT : " + name
-        dut._log.info(string)
-        dut._log.info(din.value)
-        print()
+        # dut._log.info(string)
+        # dut._log.info(din.value)
+        # print()
 
 async def back_ack(dut,ack, req):
     

@@ -57,7 +57,6 @@ class Graph:
         edges_match = re.search(r"edges=\[(.*?)\]", text)
         edges_str = edges_match.group(1) if edges_match else ""
         self.edges = eval(f"[{edges_str}]")
-        print("Extracted edges:", self.edges)
 
     def plot_graph(self):
         # Draw the graph

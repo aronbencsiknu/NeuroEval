@@ -92,8 +92,6 @@ def repeat_and_convert_packets(packets, packets_dict):
         4: []
     }
 
-    print(dictionary)
-
     for source_core, destination_cores, reps in packets:
         address = "00000"
 
