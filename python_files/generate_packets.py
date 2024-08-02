@@ -151,6 +151,7 @@ def generate_packets(dut):
                     target_cores.extend(mapping.NIR_to_cores[downstream_node])
 
             # Remove skipped packets
+            #modify to look at source neuron instead of source core
             target_cores = utils.remove_unnecessary_packets(source_core, target_cores, mapping.buffer_map)
 
             # bundle packets (bundle several unicast packets into multicast)
