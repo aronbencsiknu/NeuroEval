@@ -5,6 +5,7 @@ from .mapping import Mapping
 from . import utils
 from .options import Variables
 from .options import Specs
+import itertools
 
 import torch
 import math
@@ -28,7 +29,8 @@ def generate_packets(dut):
     net = utils.init_network(net, sample_data)
 
     indices_to_lock = {
-        "indices" : ((1,2),(3,90)),
+        "indices": list(itertools.product(range(100), repeat=2)),
+        #"indices": ((1,90), (2,80)),
         "layers"  : ("lif1","lif1")}
 
     # -------------------------------------------------
@@ -151,8 +153,11 @@ def generate_packets(dut):
                     target_cores.extend(mapping.NIR_to_cores[downstream_node])
 
             # Remove skipped packets
-            #modify to look at source neuron instead of source core
-            target_cores = utils.remove_unnecessary_packets(source_core, target_cores, mapping.buffer_map)
+            print("BEFORE:", target_cores)
+            # use idx instead of source core, modify buffer mapping
+            #target_cores = utils.remove_unnecessary_packets(source_core, target_cores, mapping.buffer_map)
+            target_cores = utils.remove_unnecessary_packets(layer_name, source_core, idx, target_cores, mapping.buffer_map)
+            print("AFTER:", target_cores)
 
             # bundle packets (bundle several unicast packets into multicast)
             bundled_core_to_cores = []

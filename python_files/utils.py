@@ -45,32 +45,20 @@ def bundle_target_cores(target_cores, min_reps):
 
   return res, new_target_cores
 
-def remove_unnecessary_packets(source_core, target_cores, buffer_map):
+def remove_unnecessary_packets(layer_name, source_core, idx, target_cores, buffer_map):
     new_target_cores = []
     #inter_core_packets = []
     for target_core, reps in target_cores:
         
-        skipped_connection = str(source_core)+str(target_core)
-
-        # # remove inter-core communication
-        # if source_core == target_core:
-        #     if skipped_connection in buffer_map:
-        #         inter_core_packets.append((target_core, reps - int(buffer_map[skipped_connection])))
-        #     else:
-        #         inter_core_packets.append((target_core, reps))
-
-        # else:
-        #     if skipped_connection in buffer_map:
-        #         new_target_cores.append((target_core, reps - int(buffer_map[skipped_connection])))
-        #     else:
-        #         new_target_cores.append((target_core, reps))
+        # format of buffer_map
+        connection = layer_name+"-"+str(idx)+"-"+str(target_core)
 
         # remove inter-core communication
         if source_core == target_core:
             continue
 
-        if skipped_connection in buffer_map:
-                new_target_cores.append((target_core, reps - int(buffer_map[skipped_connection])))
+        if connection in buffer_map:
+                new_target_cores.append((target_core, reps - int(buffer_map[connection])))
         else:
             new_target_cores.append((target_core, reps))
 

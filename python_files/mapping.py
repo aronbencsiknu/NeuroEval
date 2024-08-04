@@ -137,8 +137,10 @@ class Mapping:
         mapped_buffer = {}
         for indices in indices_to_lock['indices']:
             temp = ""
-            for idx, layer_name in enumerate(indices_to_lock['layers']):
-                temp += str(self.neuron_to_core[layer_name + "-" + str(indices[idx])])
+            #for idx, layer_name in enumerate(indices_to_lock['layers']):
+                #if idx == 0:
+            temp += str(indices_to_lock['layers'][1])+"-"+str(indices[0]) +"-"
+            temp += str(self.neuron_to_core[str(indices_to_lock['layers'][1]) + "-" + str(indices[1])])
 
             if temp not in mapped_buffer:
                 mapped_buffer[temp] = 1

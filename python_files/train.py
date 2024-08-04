@@ -38,13 +38,8 @@ class Trainer:
 
         num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(self.mapping, self.graph)
 
-        summa = 0
-        for name, p in self.net.named_parameters():
-            if 'weight' in name:
-               summa += torch.numel(p)
-
-        print("RATIO", num_long_range_conns, num_short_range_conns)
-        print(summa)
+        ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+        print("RATIO LR", ratio)
 
         for epoch in range(self.num_epochs):
             indices = torch.randperm(4)
@@ -78,10 +73,3 @@ class Trainer:
                     print(temp)
 
         return self.net
-
-# Example usage:
-# net = ...  # Define or load your network model here
-# device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-# trainer = rainer(net)
-# trainer.train(device)

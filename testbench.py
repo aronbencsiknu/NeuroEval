@@ -62,7 +62,6 @@ async def testbench(dut):
     string = "Packets not delivered:"+ str(len(expanded_packets[timestep]))
     dut._log.info(string)
     dut._log.info("TEST COMPLETED")
-    
 
 async def stimulus(dut, data,  input_req, ack, packets):
 
@@ -70,17 +69,15 @@ async def stimulus(dut, data,  input_req, ack, packets):
     print("NUM ELEMENTS", num_elements)
     global num_sent_messages
 
-    #limit = 5
     counter = 0
 
     while counter < num_elements:
         
         if ack.value == input_req.value:
-        #if True:
+
             num_sent_messages += 1
             await Timer(150, units='ps') # STABILITY
             input = int(packets[counter], base=2)
-            #input = 0b000010011001111
             data.value = input
             await Timer(150, units='ps') # STABILITY
             input_req.value = not input_req.value
