@@ -39,6 +39,8 @@ class Trainer:
         num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(self.mapping, self.graph)
 
         ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+        
+        print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
         print("RATIO LR", ratio)
 
         for epoch in range(self.num_epochs):

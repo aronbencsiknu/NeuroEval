@@ -47,11 +47,11 @@ async def testbench(dut):
     cocotb.start_soon(back_ack(dut, dut.AckOutL1, dut.ReqOutL1))
 
     # provide packets
-    cocotb.start_soon(stimulus(dut, dut.DataInE, dut.ReqInE, dut.AckInE, packets[s.EAST][timestep]))
-    cocotb.start_soon(stimulus(dut, dut.DataInN, dut.ReqInN, dut.AckInN, packets[s.NORTH][timestep]))
-    cocotb.start_soon(stimulus(dut, dut.DataInW, dut.ReqInW, dut.AckInW, packets[s.WEST][timestep]))
-    cocotb.start_soon(stimulus(dut, dut.DataInS, dut.ReqInS, dut.AckInS, packets[s.SOUTH][timestep]))
-    cocotb.start_soon(stimulus(dut, dut.DataInL1, dut.ReqInL1, dut.AckInL1, packets[s.L1][timestep]))
+    cocotb.start_soon(stimulus(dut, dut.DataInE, dut.ReqInE, dut.AckInE, packets[s.EAST][timestep][:10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInN, dut.ReqInN, dut.AckInN, packets[s.NORTH][timestep][:10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInW, dut.ReqInW, dut.AckInW, packets[s.WEST][timestep][:10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInS, dut.ReqInS, dut.AckInS, packets[s.SOUTH][timestep][:10]))
+    cocotb.start_soon(stimulus(dut, dut.DataInL1, dut.ReqInL1, dut.AckInL1, packets[s.L1][timestep][:10]))
 
     await Timer(100000, units='ns') # Expected sim end
 

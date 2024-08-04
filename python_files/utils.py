@@ -64,36 +64,6 @@ def remove_unnecessary_packets(layer_name, source_core, idx, target_cores, buffe
 
     return new_target_cores
 
-def count_target_neurons(source_core, target_cores, buffer_map):
-    # num_lr_dest = []
-    # num_sr_dest = []
-    num_lr_dest_neurons = 0
-    num_sr_dest_neurons = 0
-
-    how_many_to_subtract_sr = 0
-    how_many_to_subtract_lr = 0
-
-    for target_core, reps in target_cores:
-        
-        skipped_connection = str(source_core)+str(target_core)
-
-        # remove inter-core communication
-        if source_core == target_core:
-            if skipped_connection in buffer_map:
-                how_many_to_subtract_sr += int(buffer_map[skipped_connection])
-            
-            #num_sr_dest.append((target_core, reps))
-            num_sr_dest_neurons += reps
-
-        else:
-            if skipped_connection in buffer_map:
-                how_many_to_subtract_lr += int(buffer_map[skipped_connection])
-            
-            #num_lr_dest.append((target_core, reps))
-            num_lr_dest_neurons += reps
-
-    return num_lr_dest_neurons, num_sr_dest_neurons, how_many_to_subtract_lr, how_many_to_subtract_sr
-
 def dot_product(routing_matrices, spike_record, routing_map):
     packets = []
     exp = torch.mul(routing_matrices, spike_record)
@@ -191,27 +161,71 @@ def generate_message(message_width=10):
     
     return message_bits
 
+def count_target_neurons(layer_name, source_core, idx, target_cores, buffer_map):
+    # num_lr_dest = []
+    # num_sr_dest = []
+    num_lr_dest_neurons = 0
+    num_sr_dest_neurons = 0
+
+    how_many_to_subtract_sr = 0
+    how_many_to_subtract_lr = 0
+
+    for target_core, reps in target_cores:
+        
+        connection = layer_name+"-"+str(idx)+"-"+str(target_core)
+
+        # remove inter-core communication
+        if source_core == target_core:
+            if connection in buffer_map:
+                how_many_to_subtract_sr += int(buffer_map[connection])
+            
+            #num_sr_dest.append((target_core, reps))
+            num_sr_dest_neurons += reps
+
+        else:
+            if connection in buffer_map:
+                how_many_to_subtract_lr += int(buffer_map[connection])
+            
+            #num_lr_dest.append((target_core, reps))
+            num_lr_dest_neurons += reps
+
+    return num_lr_dest_neurons, num_sr_dest_neurons, how_many_to_subtract_lr, how_many_to_subtract_sr
+
 def calculate_lr_sr_conns(mapping, graph):
     
     num_long_range_conns = 0
     num_short_range_conns = 0
     
-    for layer_name, num_source in mapping.mem_potential_sizes.items():
-        source_sum = 0
-        sum_target_lr = 0
-        sum_target_sr = 0
-        for source_core, reps in mapping.NIR_to_cores[layer_name]:
-            source_sum += reps
-            downstream_nodes = list(graph.graph.successors(layer_name))
-            target_cores = []
-            for downstream_node in downstream_nodes:
-                if downstream_node != "output":
-                    target_cores = mapping.NIR_to_cores[downstream_node]
-                lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(source_core, target_cores, mapping.buffer_map)
+    for layer_name, size in mapping.mem_potential_sizes.items():
+        #source_sum = 0
+        #sum_target_lr = 0
+        #sum_target_sr = 0
+        # for source_core, reps in mapping.NIR_to_cores[layer_name]:
+        #     #source_sum += reps
+        #     downstream_nodes = list(graph.graph.successors(layer_name))
+        #     target_cores = []
+        #     for downstream_node in downstream_nodes:
+        #         if downstream_node != "output":
+        #             target_cores = mapping.NIR_to_cores[downstream_node]
+        #         lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(layer_name, source_core, target_cores, mapping.buffer_map)
 
                 
-                num_long_range_conns += reps * lr_target_nerons - lr_subtract
-                num_short_range_conns += reps * sr_target_neurons - sr_subtract
+        #         num_long_range_conns += reps * lr_target_nerons - lr_subtract
+        #         num_short_range_conns += reps * sr_target_neurons - sr_subtract
+
+        
+        for source_core, start_idx, end_idx in mapping.core_allocation[layer_name]:
+            downstream_nodes = list(graph.graph.successors(layer_name))
+            for idx in range(start_idx, end_idx+1):
+                target_cores = []
+                for downstream_node in downstream_nodes:
+                    if downstream_node != "output":
+                        target_cores = mapping.NIR_to_cores[downstream_node]
+                        lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(layer_name, source_core, idx, target_cores, mapping.buffer_map)
+
+                        
+                        num_long_range_conns += lr_target_nerons - lr_subtract
+                        num_short_range_conns += sr_target_neurons - sr_subtract
 
     return num_long_range_conns, num_short_range_conns
     
