@@ -197,22 +197,6 @@ def calculate_lr_sr_conns(mapping, graph):
     num_short_range_conns = 0
     
     for layer_name, size in mapping.mem_potential_sizes.items():
-        #source_sum = 0
-        #sum_target_lr = 0
-        #sum_target_sr = 0
-        # for source_core, reps in mapping.NIR_to_cores[layer_name]:
-        #     #source_sum += reps
-        #     downstream_nodes = list(graph.graph.successors(layer_name))
-        #     target_cores = []
-        #     for downstream_node in downstream_nodes:
-        #         if downstream_node != "output":
-        #             target_cores = mapping.NIR_to_cores[downstream_node]
-        #         lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(layer_name, source_core, target_cores, mapping.buffer_map)
-
-                
-        #         num_long_range_conns += reps * lr_target_nerons - lr_subtract
-        #         num_short_range_conns += reps * sr_target_neurons - sr_subtract
-
         
         for source_core, start_idx, end_idx in mapping.core_allocation[layer_name]:
             downstream_nodes = list(graph.graph.successors(layer_name))
@@ -229,3 +213,36 @@ def calculate_lr_sr_conns(mapping, graph):
 
     return num_long_range_conns, num_short_range_conns
     
+def choose_conn_remove(mapping):
+    source_layer = mapping.indices_to_lock['layers'][0]
+    dest_layer = mapping.indices_to_lock['layers'][1]
+
+    source_allocation = mapping.core_allocation[source_layer]
+    dest_allocation = mapping.core_allocation[dest_layer]
+
+    not_found = True
+
+    while not_found:
+        source_rand_core = random.randint(0, len(source_allocation)-1)
+        dest_rand_core = random.randint(0, len(dest_allocation)-1)
+
+        source_core_allocation = source_allocation[source_rand_core]
+        dest_core_allocation = dest_allocation[dest_rand_core]
+
+
+        if source_core_allocation[0] == dest_core_allocation[0]:
+            continue
+
+        source_rand_index = random.randint(source_core_allocation[1], source_core_allocation[2])
+        dest_rand_index = random.randint(dest_core_allocation[1], dest_core_allocation[2])
+
+        if (source_rand_index, dest_rand_index) in mapping.indices_to_lock['layers']:
+            continue
+
+        mapping.indices_to_lock['indices'].append((source_rand_index, dest_rand_index))
+        not_found = False
+
+    mapping.map_buffers()
+
+    return mapping
+

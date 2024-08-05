@@ -30,7 +30,7 @@ def generate_packets(dut):
 
     indices_to_lock = {
         #"indices": list(itertools.product(range(100), repeat=2)),
-        "indices": ((1,80),(2,70)),
+        "indices": [(1,80),(2,70)],
         "layers"  : ("lif1","lif1")}
 
     # -------------------------------------------------
@@ -44,18 +44,18 @@ def generate_packets(dut):
 
     # -------------------------------------------------
 
-    mapping = Mapping(net, v.num_steps, v.num_inputs, indices_to_lock)
+    mapping = Mapping(net, v.num_steps, v.num_inputs)
     total_neurons = sum(mapping.mem_potential_sizes.values())
     core_capacity = max(math.ceil((total_neurons - v.num_outputs) / (v.num_cores - 1)), v.num_outputs)
     mapping.set_core_capacity(core_capacity)
     mapping.map_neurons()
+    mapping.map_buffers(indices_to_lock)
     
     mapping.log(dut)
 
     # -------------------------------------------------
 
     trainer = Trainer(net,
-                      mapping,
                       gp,
                       num_epochs=v.num_epochs, 
                       learning_rate=v.lr, 
@@ -63,8 +63,10 @@ def generate_packets(dut):
                       batch_size=v.bs, 
                       num_steps=v.num_steps)
     
-    net = trainer.train(v.device, dut)
 
+    print(mapping.indices_to_lock)
+    net, mapping = trainer.train(v.device, mapping, dut)
+    print(mapping.indices_to_lock)
     # -------------------------------------------------
 
     # Dictionary to store spikes from each layer

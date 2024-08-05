@@ -4,8 +4,9 @@ import snntorch.functional as SF  # Ensure this module is correctly imported
 from . import utils
 
 class Trainer:
-    def __init__(self, net, mapping, graph, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
+    def __init__(self, net, graph, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
         self.net = net
+        self.graph = graph
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.target_frequency = target_frequency
@@ -19,9 +20,6 @@ class Trainer:
         self.xor_targets = torch.tensor([[0], [1], [1], [0]], dtype=torch.float32)
         self.spike_record = {}
 
-        self.mapping = mapping
-        self.graph = graph
-
         print("\n----- TRAINING -----\n")
     
     def generate_spike_train(self, input_data, num_steps, spike_prob=0.5):
@@ -31,19 +29,26 @@ class Trainer:
 
         return spike_train
 
-    def train(self, device, dut=None):
+    def train(self, device, mapping, dut=None):
         self.net = self.net.to(device)
-        self.xor_inputs = self.xor_inputs
-        self.xor_targets = self.xor_targets
 
-        num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(self.mapping, self.graph)
-
-        ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+        # num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(self.mapping, self.graph)
+        # ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
         
-        print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
-        print("RATIO LR", ratio)
+        # print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
+        # print("RATIO LR", ratio)
 
         for epoch in range(self.num_epochs):
+
+            num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
+            ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+            
+            #print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
+            #print("RATIO LR", ratio)
+
+            mapping = utils.choose_conn_remove(mapping)
+
+
             indices = torch.randperm(4)
             inputs = self.xor_inputs[indices]
             target = self.xor_targets[indices].to(device)
@@ -52,7 +57,7 @@ class Trainer:
             inputs = self.generate_spike_train(inputs, self.num_steps).to(device)
 
             # Forward pass
-            outputs, _ = self.net(inputs)
+            outputs, _ = self.net(inputs, mapping.indices_to_lock)
 
             # Define target firing frequency
             target = target.squeeze(1)
@@ -74,4 +79,4 @@ class Trainer:
                 else:
                     print(temp)
 
-        return self.net
+        return self.net, mapping

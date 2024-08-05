@@ -49,9 +49,9 @@ class SpikingNet(torch.nn.Module):
         mem2_rec = []
 
         if indices_to_lock is not None:
-
+            pass
           # Zero out and lock the specified weights
-          self.lif1.recurrent.weight.register_hook(zero_and_lock_weights(self.lif1.recurrent, indices_to_lock))
+          #self.lif1.recurrent.weight.register_hook(zero_and_lock_weights(self.lif1.recurrent, indices_to_lock))
 
         for step in range(self.num_steps):
             ## Input layer

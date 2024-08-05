@@ -2,16 +2,15 @@ import torch
 import snntorch as snn  # Ensure this module is correctly imported
 
 class Mapping:
-    def __init__(self, net, num_steps, num_inputs, indices_to_lock):
+    def __init__(self, net, num_steps, num_inputs):
         self.num_steps = num_steps
         self.num_inputs = num_inputs
         self.core_capacity = None
         self.net = net
-        self.indices_to_lock = indices_to_lock
 
         self.mem_potential_sizes = self._get_membrane_potential_sizes()
-        # self.core_allocation, self.NIR_to_cores, self.neuron_to_core = self.allocate_neurons_to_cores()
-        # self.buffer_map = self.map_buffers(indices_to_lock)
+        self.buffer_map = None
+        self.indices_to_lock = None
     
     def _get_membrane_potential_sizes(self):
         if self.net is None:
@@ -34,7 +33,7 @@ class Mapping:
     
     def map_neurons(self):
         self.core_allocation, self.NIR_to_cores, self.neuron_to_core = self._allocate_neurons_to_cores()
-        self.buffer_map = self._map_buffers(self.indices_to_lock)
+        #self.buffer_map = self.map_buffers(self.indices_to_lock)
 
     def set_core_capacity(self, cc):
         self.core_capacity = cc
@@ -133,18 +132,23 @@ class Mapping:
 
         return core_allocation, NIR_to_cores, neuron_to_core
     
-    def _map_buffers(self, indices_to_lock):
+    def map_buffers(self, indices_to_lock=None):
+
+        if indices_to_lock is not None:
+            self.indices_to_lock = indices_to_lock
+
         mapped_buffer = {}
-        for indices in indices_to_lock['indices']:
+        for indices in self.indices_to_lock['indices']:
             temp = ""
             #for idx, layer_name in enumerate(indices_to_lock['layers']):
                 #if idx == 0:
-            temp += str(indices_to_lock['layers'][1])+"-"+str(indices[0]) +"-"
-            temp += str(self.neuron_to_core[str(indices_to_lock['layers'][1]) + "-" + str(indices[1])])
+            temp += str(self.indices_to_lock['layers'][0])+"-"+str(indices[0]) +"-"
+            temp += str(self.neuron_to_core[str(self.indices_to_lock['layers'][1]) + "-" + str(indices[1])])
 
             if temp not in mapped_buffer:
                 mapped_buffer[temp] = 1
             else:
                 mapped_buffer[temp] += 1
 
-        return mapped_buffer
+        #return mapped_buffer
+        self.buffer_map = mapped_buffer
