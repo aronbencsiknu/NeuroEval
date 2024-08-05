@@ -3,6 +3,8 @@ import torch.optim as optim
 import snntorch.functional as SF  # Ensure this module is correctly imported
 from . import utils
 
+indices = None
+
 class Trainer:
     def __init__(self, net, graph, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
         self.net = net
@@ -28,36 +30,59 @@ class Trainer:
             spike_train[t] = (torch.rand(input_data.size()) < (input_data * spike_prob)).float()
 
         return spike_train
+    
+    def _achieve_desired_conn(self, conn_ratio):
+            num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
+            ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+                 
+            mapping = utils.choose_conn_remove(mapping)
 
     def train(self, device, mapping, dut=None):
         self.net = self.net.to(device)
 
-        # num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(self.mapping, self.graph)
-        # ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+        global indices
+
+        indices = mapping.indices_to_lock
+
+        def zero_out_grads(grad):
+            grad = grad.clone()
+            for idx in indices["indices"]:
+                grad[idx] = 0
+            return grad
         
-        # print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
-        # print("RATIO LR", ratio)
+        def test(module, input, output):
+             global indices
+             for idx in indices["indices"]:
+                module.weight.data[idx] = 0
+
+        self.net.lif1.recurrent.register_forward_hook(test)
+
+        if indices is not None:
+            self.net.lif1.recurrent.weight.register_hook(zero_out_grads)
 
         for epoch in range(self.num_epochs):
 
-            num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
-            ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+            # num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
+            # ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
             
-            #print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
-            #print("RATIO LR", ratio)
+            # print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
+            # print("RATIO LR", ratio)
 
-            mapping = utils.choose_conn_remove(mapping)
-
-
-            indices = torch.randperm(4)
-            inputs = self.xor_inputs[indices]
-            target = self.xor_targets[indices].to(device)
+            for i in range(100):
+                mapping = utils.choose_conn_remove(mapping)
+            indices = mapping.indices_to_lock
+            
+            input_indices = torch.randperm(4)
+            inputs = self.xor_inputs[input_indices]
+            target = self.xor_targets[input_indices].to(device)
 
             # Generate spike trains
             inputs = self.generate_spike_train(inputs, self.num_steps).to(device)
 
             # Forward pass
             outputs, _ = self.net(inputs, mapping.indices_to_lock)
+
+            print("Updated weights:\n", self.net.lif1.recurrent.weight.data[0])
 
             # Define target firing frequency
             target = target.squeeze(1)

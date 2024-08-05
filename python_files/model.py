@@ -26,18 +26,19 @@ class SpikingNet(torch.nn.Module):
 
     def forward(self, x, indices_to_lock = None):
 
-        def zero_and_lock_weights(layer, indices):
-            # Step 2: Access and modify the weights at specified indices
-            for idx in indices:
-                print(idx)
-                layer.weight.data[idx] = 0
+        # def zero_and_lock_weights(layer, indices):
+        #     # Step 2: Access and modify the weights at specified indices
+        #     #for idx in indices:
+        #         #print("HELLO",idx)
+        #         #layer.weight.data[idx] = 0
 
-            # Function to zero out specific gradients
-            def zero_out_grads(grad):
-                grad = grad.clone()
-                for idx in indices:
-                    grad[idx] = 0
-                return grad
+        #     # Function to zero out specific gradients
+        #     def zero_out_grads(grad):
+                
+        #         grad = grad.clone()
+        #         for idx in indices:
+        #             grad[idx] = 0
+        #         return grad
 
         spk1, syn1, mem1 = self.lif1.init_rsynaptic()
         mem2 = self.lif2.init_leaky()
@@ -48,10 +49,24 @@ class SpikingNet(torch.nn.Module):
         spk2_rec = []
         mem2_rec = []
 
-        if indices_to_lock is not None:
-            pass
-          # Zero out and lock the specified weights
-          #self.lif1.recurrent.weight.register_hook(zero_and_lock_weights(self.lif1.recurrent, indices_to_lock))
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # def zero_out_weights(layer, indices):
+        #     with torch.no_grad():  # Ensure we do not track this operation for autograd
+        #       for idx in indices:
+        #         layer.weight.data[idx] = 0
+        #         #layer.weight.scatter_(0, torch.tensor(indices).to(device), 0)
+              
+        #       def zero_out_grads(grad):
+        #         grad = grad.clone()
+        #         for idx in indices:
+        #             grad[idx] = 0
+        #         return grad
+        
+        #     return layer
+
+        # if indices_to_lock is not None:
+        #     self.lif1.recurrent.weight.register_hook(zero_out_weights(self.lif1.recurrent, indices_to_lock["indices"]))
 
         for step in range(self.num_steps):
             ## Input layer
