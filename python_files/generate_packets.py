@@ -57,6 +57,7 @@ def generate_packets(dut):
 
     trainer = Trainer(net,
                       gp,
+                      v.target_sparcity,
                       num_epochs=v.num_epochs, 
                       learning_rate=v.lr, 
                       target_frequency=v.target_fr, 

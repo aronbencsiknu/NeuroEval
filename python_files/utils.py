@@ -213,7 +213,7 @@ def calculate_lr_sr_conns(mapping, graph):
 
     return num_long_range_conns, num_short_range_conns
     
-def choose_conn_remove(mapping):
+def choose_conn_remove(mapping, reps=None):
     source_layer = mapping.indices_to_lock['layers'][0]
     dest_layer = mapping.indices_to_lock['layers'][1]
 
@@ -221,6 +221,7 @@ def choose_conn_remove(mapping):
     dest_allocation = mapping.core_allocation[dest_layer]
 
     not_found = True
+    counter = 0
 
     while not_found:
         source_rand_core = random.randint(0, len(source_allocation)-1)
@@ -240,7 +241,12 @@ def choose_conn_remove(mapping):
             continue
 
         mapping.indices_to_lock['indices'].append((source_rand_index, dest_rand_index))
-        not_found = False
+        if reps is None:
+            not_found = False
+        else:
+            counter += 1
+            if counter >= reps:
+                not_found = False
 
     mapping.map_buffers()
 

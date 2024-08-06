@@ -6,9 +6,10 @@ from . import utils
 indices = None
 
 class Trainer:
-    def __init__(self, net, graph, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
+    def __init__(self, net, graph, target_sparcity, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
         self.net = net
         self.graph = graph
+        self.target_sparcity = target_sparcity
         self.num_epochs = num_epochs
         self.learning_rate = learning_rate
         self.target_frequency = target_frequency
@@ -30,12 +31,6 @@ class Trainer:
             spike_train[t] = (torch.rand(input_data.size()) < (input_data * spike_prob)).float()
 
         return spike_train
-    
-    def _achieve_desired_conn(self, conn_ratio):
-            num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
-            ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
-                 
-            mapping = utils.choose_conn_remove(mapping)
 
     def train(self, device, mapping, dut=None):
         self.net = self.net.to(device)
@@ -43,6 +38,14 @@ class Trainer:
         global indices
 
         indices = mapping.indices_to_lock
+        num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
+        ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+        
+        print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
+
+        conn_reps = int((num_long_range_conns - num_long_range_conns * self.target_sparcity)/self.num_epochs)
+
+        print("CONN REPS", conn_reps)
 
         def zero_out_grads(grad):
             grad = grad.clone()
@@ -68,10 +71,10 @@ class Trainer:
             # print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
             # print("RATIO LR", ratio)
 
-            for i in range(100):
-                mapping = utils.choose_conn_remove(mapping)
+            mapping = utils.choose_conn_remove(mapping, reps=conn_reps)
             indices = mapping.indices_to_lock
             
+            # mock input
             input_indices = torch.randperm(4)
             inputs = self.xor_inputs[input_indices]
             target = self.xor_targets[input_indices].to(device)
@@ -82,9 +85,9 @@ class Trainer:
             # Forward pass
             outputs, _ = self.net(inputs, mapping.indices_to_lock)
 
-            print("Updated weights:\n", self.net.lif1.recurrent.weight.data[0])
+            #print("Updated weights:\n", self.net.lif1.recurrent.weight.data[0])
 
-            # Define target firing frequency
+            # Remove redundant dimension
             target = target.squeeze(1)
 
             # Calculate loss
@@ -103,5 +106,9 @@ class Trainer:
                     dut._log.info(temp)
                 else:
                     print(temp)
-
+        num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
+        ratio = num_long_range_conns / (num_long_range_conns + num_short_range_conns)
+        
+        print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
+        
         return self.net, mapping
