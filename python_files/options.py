@@ -13,7 +13,7 @@ class Variables(object):
         self.target_fr = 0.5
         self.bs = 16
         self.num_cores = 5
-        self.target_sparcity = 0.8
+        self.target_sparcity = 0.9
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
