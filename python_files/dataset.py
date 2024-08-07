@@ -81,9 +81,9 @@ class BinaryNavigationDataset(Dataset):
 
         return data, targets
 
-# Parameters
+# # Parameters
 # n_in = 20
-# t_cue_spacing = 40
+# t_cue_spacing = 20
 # silence_duration = 100
 # recall_duration = 20
 # seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)

@@ -11,7 +11,7 @@ class SpikingNet(torch.nn.Module):
         # Initialize layers
         self.fc1 = nn.Linear(opt.num_inputs, opt.num_hidden1)
         self.fc1.__setattr__("bias",None) # biological plausability
-        self.lif1 = snn.RSynaptic(alpha=0.9, beta=0.9, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
+        self.lif1 = snn.RSynaptic(alpha=0.9, beta=0.9, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
         self.lif1.recurrent.__setattr__("bias",None) # biological plausability
 
         self.fc2 = nn.Linear(opt.num_hidden1, opt.num_outputs)

@@ -59,21 +59,20 @@ def generate_packets(dut):
 
     # Parameters
     n_in = v.num_inputs
-    t_cue_spacing = 40
-    silence_duration = 100
-    recall_duration = 20
-    seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
+    t_cue_spacing = v.t_cue_spacing
+    #silence_duration = v.silence_duration
+    recall_duration = v.recall_duration
+    seq_len = v.num_steps
     v.num_steps = seq_len
-    batch_size = 10
+    batch_size = v.bs
     input_f0 = 40. / 100.
-    p_group = 0.3
-    n_cues = 7
-    t_cue = 20
-    t_interval = t_cue_spacing
+    p_group = v.p_group
+    n_cues = v.n_cues
+    t_cue = v.t_cue
     n_input_symbols = 4
 
     # Create dataset and dataloader
-    dataset = BinaryNavigationDataset(batch_size, seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_interval, n_input_symbols)
+    dataset = BinaryNavigationDataset(batch_size, seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
     # -------------------------------------------------
 
@@ -81,6 +80,7 @@ def generate_packets(dut):
                       dataloader,
                       gp,
                       v.target_sparcity,
+                      v.recall_duration,
                       num_epochs=v.num_epochs, 
                       learning_rate=v.lr, 
                       target_frequency=v.target_fr, 

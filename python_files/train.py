@@ -6,7 +6,7 @@ from . import utils
 indices = None
 
 class Trainer:
-    def __init__(self, net, dataloader, graph, target_sparcity, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
+    def __init__(self, net, dataloader, graph, target_sparcity, recall_duration, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, batch_size=16, num_steps=10):
         self.net = net
         self.dataloader = dataloader
         self.graph = graph
@@ -16,6 +16,7 @@ class Trainer:
         self.target_frequency = target_frequency
         self.batch_size = batch_size
         self.num_steps = num_steps
+        self.recall_duration = recall_duration
 
         self.optimizer = optim.Adam(net.parameters(), lr=learning_rate)
         self.criterion = SF.ce_count_loss()
@@ -96,7 +97,7 @@ class Trainer:
                 #target = target.squeeze(1)
 
                 # Calculate loss
-                loss = self.criterion(outputs, target)
+                loss = self.criterion(outputs[-self.recall_duration:], target)
 
                 # Backward pass and optimization
                 self.optimizer.zero_grad()

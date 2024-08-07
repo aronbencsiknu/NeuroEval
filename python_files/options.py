@@ -5,14 +5,22 @@ class Variables(object):
         self.num_inputs = 20
         self.num_hidden1 = 100
         self.num_outputs = 2
-        self.num_steps = 400
+        #self.num_steps = 400
         self.core_capacity = 50
-        self.num_epochs = 10
-        self.lr = 0.00008
+        self.num_epochs = 50
+        self.lr = 0.0001
         self.target_fr = 0.5
-        self.bs = 16
+        self.bs = 10
         self.num_cores = 5
         self.target_sparcity = 1.0
+
+        self.recall_duration = 20
+        self.t_cue_spacing = 40
+        self.silence_duration = 20
+        self.n_cues = 7
+        self.t_cue = 20
+        self.p_group = 0.3
+        self.num_steps = int(self.t_cue_spacing *  self.n_cues + self.silence_duration + self.recall_duration)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
