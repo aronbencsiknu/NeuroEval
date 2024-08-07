@@ -2,12 +2,14 @@ from .model import SpikingNet
 from .train import Trainer
 from .graph import Graph
 from .mapping import Mapping
+from .dataset import BinaryNavigationDataset
 from . import utils
 from .options import Variables
 from .options import Specs
 import itertools
 
 import torch
+from torch.utils.data import DataLoader
 import math
 import snntorch as snn
 import hashlib
@@ -55,7 +57,28 @@ def generate_packets(dut):
 
     # -------------------------------------------------
 
+    # Parameters
+    n_in = v.num_inputs
+    t_cue_spacing = 40
+    silence_duration = 100
+    recall_duration = 20
+    seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
+    v.num_steps = seq_len
+    batch_size = 10
+    input_f0 = 40. / 100.
+    p_group = 0.3
+    n_cues = 7
+    t_cue = 20
+    t_interval = t_cue_spacing
+    n_input_symbols = 4
+
+    # Create dataset and dataloader
+    dataset = BinaryNavigationDataset(batch_size, seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_interval, n_input_symbols)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    # -------------------------------------------------
+
     trainer = Trainer(net,
+                      dataloader,
                       gp,
                       v.target_sparcity,
                       num_epochs=v.num_epochs, 
@@ -110,15 +133,12 @@ def generate_packets(dut):
     spike_record = {}
     hooks = []
 
-    # Generate random input data
-    indices = [1]
-    inputs = trainer.xor_inputs[indices]
-
     # Generate input
-    inputs = trainer.generate_spike_train(inputs, v.num_steps).to(v.device)
-
+    #inputs = trainer.generate_spike_train(inputs, v.num_steps).to(v.device)
+    data, _ = dataset[0]
+    
     # Record spikes
-    _, _ = net(inputs)
+    _, _ = net(data.to(v.device))
 
     # Convert spike records to tensors for easier analysis
     for layer_name in spike_record:

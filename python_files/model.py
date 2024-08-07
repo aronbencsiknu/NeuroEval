@@ -18,13 +18,13 @@ class SpikingNet(torch.nn.Module):
         self.fc2.__setattr__("bias",None) # biological plausability
         self.lif2 = snn.Leaky(beta=0.9)
 
-        #Set all the weights to 1
-        nn.init.constant_(self.fc1.weight, 1.0)
-        nn.init.constant_(self.fc2.weight, 1.0)
+        # #Set all the weights to 1
+        # nn.init.constant_(self.fc1.weight, 1.0)
+        # nn.init.constant_(self.fc2.weight, 1.0)
 
         self.num_steps = opt.num_steps
 
-    def forward(self, x, indices_to_lock = None):
+    def forward(self, x, time_first=True, indices_to_lock = None):
 
         # def zero_and_lock_weights(layer, indices):
         #     # Step 2: Access and modify the weights at specified indices
@@ -67,7 +67,12 @@ class SpikingNet(torch.nn.Module):
 
         # if indices_to_lock is not None:
         #     self.lif1.recurrent.weight.register_hook(zero_out_weights(self.lif1.recurrent, indices_to_lock["indices"]))
+        if not time_first:
+            #test = data
+            x=x.transpose(1, 0)
 
+        # Print the shape of the new tensor to verify the dimensions are swapped
+        #print(x.shape)
         for step in range(self.num_steps):
             ## Input layer
             cur1 = self.fc1(x[step])

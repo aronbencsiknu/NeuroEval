@@ -5,9 +5,9 @@ from torch.utils.data import Dataset, DataLoader
 import snntorch.spikeplot as splt
 import matplotlib.pyplot as plt
 
-class ClickTaskDataset(Dataset):
+class BinaryNavigationDataset(Dataset):
     def __init__(self, batch_size, seq_len, n_neuron, recall_duration, p_group, f0=0.5,
-                 n_cues=7, t_cue=100, t_interval=150, n_input_symbols=4, length=5):
+                 n_cues=7, t_cue=100, t_interval=150, n_input_symbols=4, length=100):
         
         self.data = []
         self.targets = []
@@ -82,37 +82,37 @@ class ClickTaskDataset(Dataset):
         return data, targets
 
 # Parameters
-n_in = 40
-t_cue_spacing = 40
-silence_duration = 100
-recall_duration = 20
-seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
-batch_size = 10
-input_f0 = 40. / 100.
-p_group = 0.3
-n_cues = 7
-t_cue = 20
-t_interval = t_cue_spacing
-n_input_symbols = 4
+# n_in = 20
+# t_cue_spacing = 40
+# silence_duration = 100
+# recall_duration = 20
+# seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
+# batch_size = 10
+# input_f0 = 40. / 100.
+# p_group = 0.3
+# n_cues = 7
+# t_cue = 20
+# t_interval = t_cue_spacing
+# n_input_symbols = 4
 
-# Create dataset and dataloader
-dataset = ClickTaskDataset(batch_size, seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_interval, n_input_symbols)
-dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
+# # Create dataset and dataloader
+# dataset = BinaryNavigationDataset(batch_size, seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_interval, n_input_symbols)
+# dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-print(len(dataset))
+# print(len(dataset))
 
-# Visualize the data
-for spk_data, target_data in dataloader:
-    data = spk_data[0]
-    print(spk_data.size())
+# # Visualize the data
+# for spk_data, target_data in dataloader:
+#     data = spk_data[0]
+#     print(spk_data.size())
 
-    fig = plt.figure(facecolor="w", figsize=(10, 5))
-    ax = fig.add_subplot(111)
+#     fig = plt.figure(facecolor="w", figsize=(10, 5))
+#     ax = fig.add_subplot(111)
 
-    splt.raster(data, ax, s=1.5, c="black")
+#     splt.raster(data, ax, s=1.5, c="black")
 
-    plt.title("Input Layer")
-    plt.xlabel("Time step")
-    plt.ylabel("Neuron Number")
-    plt.show()
-    #break  # Only display the first batch
+#     plt.title("Input Layer")
+#     plt.xlabel("Time step")
+#     plt.ylabel("Neuron Number")
+#     plt.show()
+#     #break  # Only display the first batch

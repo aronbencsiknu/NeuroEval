@@ -1,19 +1,18 @@
 import torch
-import argparse
 
 class Variables(object):
     def __init__(self):
-        self.num_inputs = 2
+        self.num_inputs = 20
         self.num_hidden1 = 100
         self.num_outputs = 2
-        self.num_steps = 100
+        self.num_steps = 400
         self.core_capacity = 50
-        self.num_epochs = 20
-        self.lr = 1e-4
+        self.num_epochs = 10
+        self.lr = 0.00008
         self.target_fr = 0.5
         self.bs = 16
         self.num_cores = 5
-        self.target_sparcity = 0.9
+        self.target_sparcity = 1.0
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
