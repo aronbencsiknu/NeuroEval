@@ -20,10 +20,6 @@ class Trainer:
 
         self.optimizer = optim.Adam(net.parameters(), lr=learning_rate)
         self.criterion = SF.ce_count_loss()
-
-        self.xor_inputs = torch.tensor([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=torch.float32)
-        #self.xor_targets = torch.tensor([[0], [1], [1], [0]], dtype=torch.int32)
-        self.xor_targets = torch.tensor([[0], [1], [1], [0]])
         self.spike_record = {}
 
         print("\n----- TRAINING -----\n")
@@ -46,7 +42,7 @@ class Trainer:
         
         print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
 
-        conn_reps = int((num_long_range_conns - num_long_range_conns * self.target_sparcity)/self.num_epochs)
+        conn_reps = int((num_long_range_conns - num_long_range_conns * self.target_sparcity)/(self.num_epochs+1))
 
         print("CONN REPS", conn_reps)
 
@@ -80,21 +76,10 @@ class Trainer:
                 mapping = utils.choose_conn_remove(mapping, reps=conn_reps)
                 # indices = mapping.indices_to_lock
                 
-                # # mock input
-                # input_indices = torch.randperm(4)
-                # inputs = self.xor_inputs[input_indices]
-                # target = self.xor_targets[input_indices].to(device)
-
-                # Generate spike trains
-                #inputs = self.generate_spike_train(inputs, self.num_steps).to(device)
-
                 # Forward pass
                 outputs, _ = self.net(data, time_first=False)
 
-                #print("Updated weights:\n", self.net.lif1.recurrent.weight.data[0])
-
-                # Remove redundant dimension
-                #target = target.squeeze(1)
+                # print("Updated weights:\n", self.net.lif1.recurrent.weight.data[0])
 
                 # Calculate loss
                 loss = self.criterion(outputs[-self.recall_duration:], target)

@@ -10,19 +10,27 @@ from cocotb.runner import get_runner
 
 
 def tb_runner():
+
+    hdl_toplevel_lang = os.getenv("VHDL_GPI_INTERFACE", "vhpi")
     sim = os.getenv("SIM", "questa")
 
     proj_path = Path(__file__).resolve().parent
 
     sources = list(proj_path.glob("*.v"))
+    sources.extend(list(proj_path.glob("*.sv")))
+
+    sim_args = ["-suppress", "vsim-3839"]
+
 
     runner = get_runner(sim)
     runner.build(
         sources=sources,
-        hdl_toplevel="switch_5x5_XY",
+        hdl_toplevel="tb_mt_stage",
+        
+          # Pass the simulator arguments here,
     )
 
-    runner.test(hdl_toplevel="switch_5x5_XY", test_module="testbench,", waves=True)
+    runner.test(hdl_toplevel="tb_mt_stage", test_module="testbench_digital,", waves=True, test_args=["-suppress", "vsim-3839", "-suppress", "vsim-12003"])
 
 
 if __name__ == "__main__":

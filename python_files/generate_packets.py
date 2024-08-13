@@ -225,8 +225,9 @@ def generate_packets(dut):
     expanded_packets_list = []
 
     for packet in packets:
+        # every iteration is one timestep
 
-        temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict)
+        temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict, s.ADDR_W)
         
         #final_packets_list.append(packets)
         expanded_packets_list.append(expanded_packets)

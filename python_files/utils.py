@@ -87,9 +87,10 @@ def init_network(net, sample_data):
 
     return net
 
-def repeat_and_convert_packets(packets, packets_dict):
+def repeat_and_convert_packets(packets, packets_dict, address_length):
     #final_packet_list = []
-    expanded_packets_list = []
+    #expanded_packets_list = []
+    expanded_packets_dict = {}
 
     dictionary = {
         0: [],
@@ -98,11 +99,14 @@ def repeat_and_convert_packets(packets, packets_dict):
         3: [],
         4: []
     }
-
     for source_core, destination_cores, reps in packets:
-        address = "00000"
-
-        # Convert string to list
+        address = ""
+    
+        # Append '0' to the address until it reaches the desired address length
+        while len(address) < address_length:
+            address += "0"
+            # Convert string to list
+        
         string_list = list(address)
 
         for index in destination_cores:
@@ -124,9 +128,10 @@ def repeat_and_convert_packets(packets, packets_dict):
 
             dictionary[source_core].extend(temp)
 
-            expanded_packets_list.extend(_expand_address_list(updated_address, mock_message))
+            #expanded_packets_list.extend(_expand_address_list(updated_address, mock_message))
+            expanded_packets_dict[mock_message] = _count_address_list(updated_address, mock_message)
 
-    return dictionary, expanded_packets_list
+    return dictionary, expanded_packets_dict
 
 def _expand_address_list(in_a, in_m, addr_width=5):
     out_list = []
@@ -141,6 +146,16 @@ def _expand_address_list(in_a, in_m, addr_width=5):
             out_list.append(in_m + formatted_value)
 
     return out_list
+
+def _count_address_list(in_a, in_m, addr_width=5):
+    #out_list = []
+    counter = 0
+
+    # Iterate over each bit in the address width
+    for i in range(addr_width):
+        if in_a[i] == "1":
+            counter += 1
+    return counter
 
 def generate_message(message_width=10):
     global counter

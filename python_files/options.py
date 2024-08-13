@@ -7,8 +7,8 @@ class Variables(object):
         self.num_outputs = 2
         #self.num_steps = 400
         self.core_capacity = 50
-        self.num_epochs = 50
-        self.lr = 0.0001
+        self.num_epochs = 1
+        self.lr = 0.00001
         self.target_fr = 0.5
         self.bs = 10
         self.num_cores = 5

@@ -19,8 +19,8 @@ class SpikingNet(torch.nn.Module):
         self.lif2 = snn.Leaky(beta=0.9)
 
         # #Set all the weights to 1
-        # nn.init.constant_(self.fc1.weight, 1.0)
-        # nn.init.constant_(self.fc2.weight, 1.0)
+        #nn.init.constant_(self.fc1.weight, 1.0)
+        #nn.init.constant_(self.fc2.weight, 1.0)
 
         self.num_steps = opt.num_steps
 
