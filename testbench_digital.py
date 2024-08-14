@@ -1,5 +1,6 @@
 import cocotb
 from cocotb.triggers import Timer, Edge
+import numpy as np
 
 from python_files.options import Variables
 from python_files.options import Specs
@@ -21,90 +22,151 @@ async def testbench(dut):
     packets, expanded_packets = gp.generate_packets(dut=None)
 
     await Edge(dut.init_done)
-    
-    timestep = 0 # temporary
 
-    def return_chunk(packets, st_index):
+    def return_chunk(packets, idx):
          length = len(packets)
 
-         if st_index >=length - 1:
+         if idx >=length - 1:
               return None, None, True
 
-         if st_index + max_dut_len > length:
+         if idx + max_dut_len > length:
               
-              chunk = [int(element, base=2) for element in packets[st_index:length]] + [0]*(max_dut_len-(length - st_index))
-              return chunk, length - st_index, False
+              chunk = [int(element, base=2) for element in packets[idx:length]] + [0]*(max_dut_len-(length - idx))
+              return chunk, length - idx, False
          
-         chunk = [int(element, base=2) for element in packets[st_index:st_index + max_dut_len]]
+         chunk = [int(element, base=2) for element in packets[idx:idx + max_dut_len]]
          return chunk, max_dut_len, False
 
-    for i in range(20,25):
+    for i in range(30,33):
 
- 
+        
         if not (len(packets[s.EAST][i]) == 0 and 
                 len(packets[s.NORTH][i]) == 0 and 
                 len(packets[s.WEST][i]) == 0 and 
                 len(packets[s.SOUTH][i]) == 0 and
                 len(packets[s.L1][i]) == 0):
 
-                temp = "HELLO"+ str(i)
-                # dut._log.info("--------------------------------------")
-                # dut._log.info(temp)
-                # dut._log.info("--------------------------------------")
-                start_index = 0
-                while True:
-                    
-                    # no append to but just send lol
-                    chunk_e, length_e, finished_e = return_chunk(packets[s.EAST][i], start_index)
-                    chunk_n, length_n, finished_n = return_chunk(packets[s.NORTH][i], start_index)
-                    chunk_w, length_w, finished_w = return_chunk(packets[s.WEST][i], start_index)
-                    chunk_s, length_s, finished_s = return_chunk(packets[s.SOUTH][i], start_index)
-                    chunk_l1, length_l1, finished_l1 = return_chunk(packets[s.L1][i], start_index)
-                    
-                    if (finished_e and
-                        finished_n and 
-                        finished_w and 
-                        finished_s and 
-                        finished_l1):
-                        
-                        break
-                    dut.packetCounterE.value = 0
-                    dut.packetCounterN.value = 0
-                    dut.packetCounterW.value = 0
-                    dut.packetCounterS.value = 0
-                    dut.packetCounterL1.value = 0
+            temp = "HELLO"+ str(i)
+            dut._log.info("--------------------------------------")
+            dut._log.info(temp)
+            dut._log.info("--------------------------------------")
+            
+            main_index = 0
 
-                    if not finished_e:
-                        dut.packetListE.value = chunk_e
-                        dut.packetLimitE.value = length_e
-                    if not finished_n:
-                        dut.packetListN.value = chunk_n
-                        dut.packetLimitN.value = length_n
-                    if not finished_w:
-                        dut.packetListW.value = chunk_w
-                        dut.packetLimitW.value = length_w
-                    if not finished_s:
-                        dut.packetListS.value = chunk_s
-                        dut.packetLimitS.value = length_s
-                    if not finished_l1:
-                        dut.packetListL1.value = chunk_l1
-                        dut.packetLimitL1.value = length_l1
-                    
-                    
-                    #print("IN VSLUE",dut.DataInE.value)
-                    dut.counter_reset.value = dut.counter_reset.value+1
-                    # await Timer(1, units='ps')
-                    #await Edge(dut.ts_end)
-                    await Edge(dut.simend)
-                    start_index += max_dut_len
-                    
+            index_e = 0
+            index_n = 0
+            index_w = 0
+            index_s = 0
+            index_l1 = 0
 
+            while True:
+                
+                # no append to but just send lol
+                _, length_e, finished_e = return_chunk(packets[s.EAST][i], main_index)
+                _, length_n, finished_n = return_chunk(packets[s.NORTH][i], main_index)
+                _, length_w, finished_w = return_chunk(packets[s.WEST][i], main_index)
+                _, length_s, finished_s = return_chunk(packets[s.SOUTH][i], main_index)
+                _, length_l1, finished_l1 = return_chunk(packets[s.L1][i], main_index)
 
-    #dut.counter_reset.value = dut.counter_reset.value+1
-    #print("FINISH",dut.finish.value)
+                chunk_e, _, sent_all_e = return_chunk(packets[s.EAST][i], index_e)
+                chunk_n, _, sent_all_n = return_chunk(packets[s.NORTH][i], index_n)
+                chunk_w, _, sent_all_w = return_chunk(packets[s.WEST][i], index_w)
+                chunk_s, _, sent_all_s = return_chunk(packets[s.SOUTH][i], index_s)
+                chunk_l1, _, sent_all_l1 = return_chunk(packets[s.L1][i], index_l1)
+                
+                if (finished_e and
+                    finished_n and 
+                    finished_w and 
+                    finished_s and 
+                    finished_l1):
+
+                    break
+                
+                dut.packetCounterE.value = 0
+                dut.packetCounterN.value = 0
+                dut.packetCounterW.value = 0
+                dut.packetCounterS.value = 0
+                dut.packetCounterL1.value = 0
+
+                if not finished_e:
+                    dut.packetListE.value = chunk_e
+                    dut.packetLimitE.value = length_e
+                if not finished_n:
+                    dut.packetListN.value = chunk_n
+                    dut.packetLimitN.value = length_n
+                if not finished_w:
+                    dut.packetListW.value = chunk_w
+                    dut.packetLimitW.value = length_w
+                if not finished_s:
+                    dut.packetListS.value = chunk_s
+                    dut.packetLimitS.value = length_s
+                if not finished_l1:
+                    dut.packetListL1.value = chunk_l1
+                    dut.packetLimitL1.value = length_l1
+
+                dut.counter_reset.value = dut.counter_reset.value+1
+                await Edge(dut.simend)
+                await Timer(1, units='ps')
+
+                # await Timer(70000, units='ps') # allowed trasmit time
+
+                if not finished_e:
+                    num_sent_e = dut.packetCounterE.value
+                    index_e += max_dut_len - (max_dut_len - num_sent_e)
+
+                if not finished_n:
+                    num_sent_n = dut.packetCounterN.value
+                    index_n += max_dut_len - (max_dut_len - num_sent_n)
+
+                if not finished_w:
+                    num_sent_w = dut.packetCounterW.value
+                    index_w += max_dut_len - (max_dut_len - num_sent_w)
+
+                if not finished_s:
+                    num_sent_s = dut.packetCounterS.value
+                    index_s += max_dut_len - (max_dut_len - num_sent_s)
+
+                if not finished_l1:
+                    num_sent_l1 = dut.packetCounterL1.value
+                    index_l1 += max_dut_len - (max_dut_len - num_sent_l1)
+
+                main_index += max_dut_len
+
+                print()
+                print("Main Index:", main_index)
+                print("Index E:", index_e)
+                print("Index N:", index_n)
+                print("Index W:", index_w)
+                print("Index S:", index_s)
+                print("Index L1:", index_l1)
+
+                current_time = cocotb.utils.get_sim_time()
+                cocotb.log.info(f"Current simulation time: {current_time} ns")
+
+    #dut.packet_expand_done.value = 0
+    #dut.sync.value = 1
+    #await Edge(dut.fruits)
+    #data_not_sent_e = packets[s.EAST][i][num_sent_e:]
+    print("Sent All E:", sent_all_e, )
+    print("Sent All N:", sent_all_n)
+    print("Sent All W:", sent_all_w)
+    print("Sent All S:", sent_all_s)
+    print("Sent All L1:", sent_all_l1)
+    print()
+    print("Length of Packets EAST:", len(packets[s.EAST][i]))
+    print("Length of Packets NORTH:", len(packets[s.NORTH][i]))
+    print("Length of Packets WEST:", len(packets[s.WEST][i]))
+    print("Length of Packets SOUTH:", len(packets[s.SOUTH][i]))
+    print("Length of Packets L1:", len(packets[s.L1][i]))
+    print()
+    #print("REMAINING",dut.fruits.value)
+    test = np.array(dut.fruits.value)
+    print(np.sum(test))
+
     #await Edge(dut.simend)
+
     dut.finish.value = 1
-    await Timer(1000, units='ps') 
+    await Timer(1, units='ps')
     
     dut._log.info("TEST COMPLETED")
 """

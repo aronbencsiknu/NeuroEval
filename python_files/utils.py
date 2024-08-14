@@ -99,7 +99,7 @@ def repeat_and_convert_packets(packets, packets_dict, address_length):
         3: [],
         4: []
     }
-    for source_core, destination_cores, reps in packets:
+    for source_neuron_index, dest_neuron_start_index, source_core, destination_cores, reps in packets:
         address = ""
     
         # Append '0' to the address until it reaches the desired address length
@@ -117,11 +117,11 @@ def repeat_and_convert_packets(packets, packets_dict, address_length):
         
         prev_mock_message = None
         for i in range(reps):
-            mock_message = generate_message()
+            mock_message = generate_message_neuron_idx(source_neuron_index, dest_neuron_start_index+i)
 
-            if mock_message == prev_mock_message:
-                while mock_message == prev_mock_message:
-                    mock_message = generate_message()
+            # if mock_message == prev_mock_message:
+            #     while mock_message == prev_mock_message:
+            #         mock_message = generate_message()
 
             prev_mock_message = mock_message
             temp = [mock_message+updated_address]
@@ -156,6 +156,11 @@ def _count_address_list(in_a, in_m, addr_width=5):
         if in_a[i] == "1":
             counter += 1
     return counter
+
+def generate_message_neuron_idx(s_idx, d_idx, message_width=20):
+    #print("START_INDEX", s_idx)
+    #print("DEST INDEX",format(s_idx, f'0{int(message_width/2)}b') +":"+ format(d_idx, f'0{int(message_width/2)}b'))
+    return format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b')
 
 def generate_message(message_width=10):
     global counter

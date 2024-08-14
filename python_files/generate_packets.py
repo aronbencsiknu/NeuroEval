@@ -87,7 +87,6 @@ def generate_packets(dut):
                       batch_size=v.bs, 
                       num_steps=v.num_steps)
     
-
     net, mapping = trainer.train(v.device, mapping, dut)
  
     # -------------------------------------------------
@@ -124,8 +123,6 @@ def generate_packets(dut):
         if isinstance(module, snn.Leaky) or isinstance(module, snn.RSynaptic):
             hooks.append(module.register_forward_hook(create_spike_hook(name)))
 
-    #net, hooks = utils.attach_hooks(net)
-
     # -------------------------------------------------
 
     # Dictionary to store spikes from each layer
@@ -156,8 +153,11 @@ def generate_packets(dut):
     routing_matrices = {}
     routing_map = {}
 
+    source_neuron_index = 0 # index counting over all the neurons, used in verilog of id
+
+    # counstricting routing matrices
     for layer_name, size in mapping.mem_potential_sizes.items(): # a way to get the layer names
-        # routing_matrix = torch.zeros((opt.num_steps, size))
+        
         routing_matrix = torch.zeros((size))
         for idx in range(size):
 
@@ -179,9 +179,10 @@ def generate_packets(dut):
 
             # bundle packets (bundle several unicast packets into multicast)
             bundled_core_to_cores = []
+            dest_neuron_start_index = 0
             while len(target_cores) > 0:
-                _, minimum = target_cores[0]
-                for _, reps in target_cores:
+                _, minimum = target_cores[0] # just getting the first repetition value
+                for _, reps in target_cores: # find the minimum repetition value
                     if reps < minimum:
                         minimum = reps
 
@@ -191,11 +192,15 @@ def generate_packets(dut):
             packet_information = []
 
             for bcc, reps in bundled_core_to_cores:
-                packet_information.append((source_core, bcc, reps))
+                packet_information.append((source_neuron_index, dest_neuron_start_index, source_core, bcc, reps))
                 h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
                 routing_map[h] = packet_information
 
                 routing_matrix[idx] = h
+
+                dest_neuron_start_index += reps
+
+            source_neuron_index += 1
 
         routing_matrices[layer_name] = routing_matrix
 

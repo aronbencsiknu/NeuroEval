@@ -2,7 +2,7 @@
 
 //integer num_elements = `NUM_PACKETS_P_INJ;
 
-logic [`DATA_W-1:0] expandedPacketsList[$];
+
 
 integer counterRecieved = 0;
 logic packet_expand_done = 0;
@@ -13,19 +13,21 @@ module tb_mt_stage;
     //import my_pkg::*;
 	logic reset;
 
-	logic ReqInE, AckInE, ReqOutE, AckOutE; logic [0:14] DataInE, DataOutE; // Port E
-	logic ReqInN, AckInN, ReqOutN, AckOutN; logic [0:14] DataInN, DataOutN; // Port N
-	logic ReqInW, AckInW, ReqOutW, AckOutW; logic [0:14] DataInW, DataOutW; // Port W
-	logic ReqInS, AckInS, ReqOutS, AckOutS; logic [0:14] DataInS, DataOutS; // Port S
-	logic ReqInL1, AckInL1, ReqOutL1, AckOutL1; logic [0:14] DataInL1, DataOutL1; // Port L1
+	logic ReqInE, AckInE, ReqOutE, AckOutE; logic [0:`DATA_W-1] DataInE, DataOutE; // Port E
+	logic ReqInN, AckInN, ReqOutN, AckOutN; logic [0:`DATA_W-1] DataInN, DataOutN; // Port N
+	logic ReqInW, AckInW, ReqOutW, AckOutW; logic [0:`DATA_W-1] DataInW, DataOutW; // Port W
+	logic ReqInS, AckInS, ReqOutS, AckOutS; logic [0:`DATA_W-1] DataInS, DataOutS; // Port S
+	logic ReqInL1, AckInL1, ReqOutL1, AckOutL1; logic [0:`DATA_W-1] DataInL1, DataOutL1; // Port L1
 
     logic simend;
     logic ts_end;
+    logic sync;
     
     logic init_done;
 
     logic finish;
-    
+    logic [`DATA_W-1:0] expandedPacketsList[$];
+    int fruits[`NUM_NEURONS][`ADDR_W][`CORE_CAPACITY];
 
     // Definitions for directions
     typedef enum {EAST, NORTH, WEST, SOUTH, L1} direction_t;
@@ -57,31 +59,46 @@ module tb_mt_stage;
 
     integer counter_reset;
 
-    //logic [14:0] expandedPacketsList[$]; // Assuming 50 is enough to hold all expanded addresses
+    //logic [14:0] tb_mt_stage.expandedPacketsList[$]; // Assuming 50 is enough to hold all expanded addresses
     integer i, j, index = 0;
 
     task expand_address_list(
     input reg [`DATA_W-1:0] packet_list[`NUM_PACKETS_P_INJ], 
     //output reg [0:`DATA_W-1] out_list[],
-    input integer limit
-);
+    input integer limit,
+    input integer core_id
+    );
     //integer i, j;
     reg [`ADDR_W-1:0] address;
     reg [`MSG_W-1:0] message;
+    //logic [`MSG_W-1:0] message;
+    logic [(`MSG_W/2)-1:0] message_first_half;
+    logic [(`MSG_W/2)-1:0] message_second_half;
         for (i = 0; i < limit; i++) begin
             
             message = packet_list[i][`ADDR_W+`MSG_W-1:`ADDR_W];
+            message_first_half = message[`MSG_W-1:`MSG_W/2];
+            message_second_half = message[(`MSG_W/2)-1:0];
+
+            address = packet_list[i][`ADDR_W-1:0];
 
             // Extract the last ADDR_W bits for the address
-            address = packet_list[i][`ADDR_W-1:0];
+            //$display("entire: %b", packet_list[i]);
+            //$display("First half (integer): %0d", message_first_half);
+            //$display("Second half (integer): %0d", message_second_half);
+            //$display("ENTIRE ADDRESS: %b", address);
             for (j = 0; j < `ADDR_W; j++) begin
                     if (address[j]) begin
-                        //$display("PACKET %b", {message, 5'b00001 << j});
-			            expandedPacketsList = {expandedPacketsList, {message, 5'b00001 << j}}; // Shift 1 to the position of each set bit, concatenate with message
+                        //$display("PACKET: core %d:%d:%b", core_id, `ADDR_W-1-j, 5'b00001 << j);
+                        
+			            tb_mt_stage.expandedPacketsList = {tb_mt_stage.expandedPacketsList, {message, 5'b00001 << j}}; // Shift 1 to the position of each set bit, concatenate with message
+                        
+                        //tb_mt_stage.fruits[0][0][0] += 1;
+                        tb_mt_stage.fruits[message_first_half][`ADDR_W-1-j][message_second_half] += 1;
                     end
             end
-    end
-endtask
+        end
+    endtask
 
     initial begin
 
@@ -118,7 +135,7 @@ endtask
         
         init_done = 1;
          
-        // $display("Initial size of packet list: %d", expandedPacketsList.size());
+        // $display("Initial size of packet list: %d", tb_mt_stage.expandedPacketsList.size());
         //$display("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
         
         
@@ -130,8 +147,8 @@ endtask
 
         //Display data for L1 direction
         // $display("Data for L1 direction:");
-        // foreach (expandedPacketsList[i]) begin
-        //     $display("Address: %b",expandedPacketsList[i]);
+        // foreach (tb_mt_stage.expandedPacketsList[i]) begin
+        //     $display("Address: %b",tb_mt_stage.expandedPacketsList[i]);
         // end
 
         //$finish; // End of simulation
@@ -198,6 +215,7 @@ endtask
 
     expand_packets ep(.counter_reset(counter_reset));
     signal_ts_end ste();
+    //sync_remaining sr();
 
     // Stimulus for East direction
     stimulus fs_E(
@@ -260,11 +278,11 @@ endtask
     );
 
     // Check which packets arrived correctly from the predefined list
-    check_packet_transit cpt_E(.dataOut(DataOutE), .req(ReqOutE), .ts_end_in(ts_end), .ts_end_out(ts_end));
-    check_packet_transit cpt_N(.dataOut(DataOutN), .req(ReqOutN), .ts_end_in(ts_end), .ts_end_out(ts_end));
-    check_packet_transit cpt_W(.dataOut(DataOutW), .req(ReqOutW), .ts_end_in(ts_end), .ts_end_out(ts_end));
-    check_packet_transit cpt_S(.dataOut(DataOutS), .req(ReqOutS), .ts_end_in(ts_end), .ts_end_out(ts_end));
-    check_packet_transit cpt_L1(.dataOut(DataOutL1), .req(ReqOutL1), .ts_end_in(ts_end), .ts_end_out(ts_end));
+    check_packet_transit cpt_E(.dataOut(DataOutE), .req(ReqOutE), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`EAST));
+    check_packet_transit cpt_N(.dataOut(DataOutN), .req(ReqOutN), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`NORTH));
+    check_packet_transit cpt_W(.dataOut(DataOutW), .req(ReqOutW), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`WEST));
+    check_packet_transit cpt_S(.dataOut(DataOutS), .req(ReqOutS), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`SOUTH));
+    check_packet_transit cpt_L1(.dataOut(DataOutL1), .req(ReqOutL1), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`L1));
 
 endmodule
 
@@ -274,18 +292,35 @@ module expand_packets(input integer counter_reset);
     begin
         //$display("HERE-");
         packet_expand_done = 0;
-        expandedPacketsList.delete();
-        expand_address_list(tb_mt_stage.packetListE, tb_mt_stage.packetLimitE);
-        expand_address_list(tb_mt_stage.packetListN, tb_mt_stage.packetLimitN);
-        expand_address_list(tb_mt_stage.packetListW, tb_mt_stage.packetLimitW);
-        expand_address_list(tb_mt_stage.packetListS, tb_mt_stage.packetLimitS);
-        expand_address_list(tb_mt_stage.packetListL1, tb_mt_stage.packetLimitL1);
+        //tb_mt_stage.expandedPacketsList.delete();
+        expand_address_list(tb_mt_stage.packetListE, tb_mt_stage.packetLimitE, `EAST);
+        expand_address_list(tb_mt_stage.packetListN, tb_mt_stage.packetLimitN, `NORTH);
+        expand_address_list(tb_mt_stage.packetListW, tb_mt_stage.packetLimitW, `WEST);
+        expand_address_list(tb_mt_stage.packetListS, tb_mt_stage.packetLimitS, `SOUTH);
+        expand_address_list(tb_mt_stage.packetListL1, tb_mt_stage.packetLimitL1, `L1);
+        // foreach(tb_mt_stage.fruits[i]) begin
+        //     tb_mt_stage.fruits[i] = 0;
+        // end
+        // foreach(tb_mt_stage.expandedPacketsList[i]) begin
+        //     tb_mt_stage.fruits[i] = tb_mt_stage.expandedPacketsList[i];
+        // end
         packet_expand_done = 1;
     end
  end
 
 endmodule
 
+// module sync_remaining();
+//     always @(tb_mt_stage.sync) begin
+//         packet_expand_done = 0;
+//         foreach(tb_mt_stage.fruits[i]) begin
+//             tb_mt_stage.fruits[i] = 0;
+//         end
+//         foreach(tb_mt_stage.expandedPacketsList[i]) begin
+//             tb_mt_stage.fruits[i] = tb_mt_stage.expandedPacketsList[i];
+//         end
+//     end
+// endmodule
 module signal_ts_end();
     always @(tb_mt_stage.packetCounterE,
         tb_mt_stage.packetCounterN,
@@ -299,11 +334,11 @@ module signal_ts_end();
         tb_mt_stage.packetCounterS == tb_mt_stage.packetLimitS  &&
         tb_mt_stage.packetCounterL1 == tb_mt_stage.packetLimitL1 ) begin
 
-                // $display("Counter is %d", tb_mt_stage.packetCounterE);
-                // $display("Counter is %d", tb_mt_stage.packetCounterN);
-                // $display("Counter is %d", tb_mt_stage.packetCounterW);
-                // $display("Counter is %d", tb_mt_stage.packetCounterS);
-                // $display("Counter is %d", tb_mt_stage.packetCounterL1);
+                $display("Counter is %d", tb_mt_stage.packetCounterE);
+                $display("Counter is %d", tb_mt_stage.packetCounterN);
+                $display("Counter is %d", tb_mt_stage.packetCounterW);
+                $display("Counter is %d", tb_mt_stage.packetCounterS);
+                $display("Counter is %d", tb_mt_stage.packetCounterL1);
 
                 tb_mt_stage.ts_end++;
             end
@@ -320,7 +355,6 @@ module stimulus(
     output reg output_req,
     output reg [`DATA_W-1:0] stimulus,
     input integer limit
-    
 );
   
     initial begin
@@ -349,29 +383,40 @@ module check_packet_transit(
 	input logic [`DATA_W-1:0] dataOut,
     input req,
     input logic ts_end_in,
-    output logic ts_end_out
+    output logic ts_end_out,
+    input integer core_id
 );
-	//int index = 0;
+
+        //reg [`ADDR_W-1:0] address;
+        reg [`MSG_W-1:0] message;
+        logic [(`MSG_W/2)-1:0] message_first_half;
+        logic [(`MSG_W/2)-1:0] message_second_half;
+	
 	always @(req) begin
 		automatic int index = -1;
         counterRecieved = counterRecieved + 1;
+            
+        message = dataOut[`ADDR_W+`MSG_W-1:`ADDR_W];
+        message_first_half = message[`MSG_W-1:`MSG_W/2];
+        message_second_half = message[(`MSG_W/2)-1:0];
         
-		foreach(expandedPacketsList[i]) begin
-			if (expandedPacketsList[i] == dataOut) begin
+		foreach(tb_mt_stage.expandedPacketsList[i]) begin
+			if (tb_mt_stage.expandedPacketsList[i] == dataOut) begin
                 		index = i;
                 		break;
 			end
         end
-        $display("Size of list is: %d", expandedPacketsList.size());
+        //$display("Size of list is: %d", tb_mt_stage.expandedPacketsList.size());
         if (index != -1) begin
-	        //$display("############### Success: Value %b was found in the packet list. %d", dataOut, $size(expandedPacketsList));
-            expandedPacketsList.delete(index);  // Remove the item if found
-            
+	        //$display("############### Success: Value %b was found in the packet list. %d", dataOut, $size(tb_mt_stage.expandedPacketsList));
+            tb_mt_stage.expandedPacketsList.delete(index);  // Remove the item if found
+            tb_mt_stage.fruits[message_first_half][core_id][message_second_half] -= 1;
+
         end else begin
-            //$display("Value %b not found in the packet list.", dataOut);
+            $display("Value %b not found in the packet list.", dataOut);
         end
-        if ($size(expandedPacketsList) <= 0) begin
-            //$display("DELIVERED EVERYTHING BITCH %d %d", tb_mt_stage.counter_reset, $size(expandedPacketsList));
+        if ($size(tb_mt_stage.expandedPacketsList) <= 0) begin
+            //$display("DELIVERED EVERYTHING BITCH %d %d", tb_mt_stage.counter_reset, $size(tb_mt_stage.expandedPacketsList));
                 tb_mt_stage.simend++;
                 
         end
