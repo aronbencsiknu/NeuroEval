@@ -5,20 +5,20 @@ class Variables(object):
         self.num_inputs = 20
         self.num_hidden1 = 100
         self.num_outputs = 2
-        #self.num_steps = 400
         self.core_capacity = 50
-        self.num_epochs = 1
-        self.lr = 0.00001
+        self.num_epochs = 20
+        self.lr = 0.0001
         self.target_fr = 0.5
-        self.bs = 10
+        self.bs = 25
         self.num_cores = 5
         self.target_sparcity = 1.0
+        self.wandb_key = "edfb94e4b9dca47c397a343d2829e9af262d9e32"
 
         self.recall_duration = 20
-        self.t_cue_spacing = 40
-        self.silence_duration = 20
+        self.t_cue_spacing = 15
+        self.silence_duration = 50
         self.n_cues = 7
-        self.t_cue = 20
+        self.t_cue = 10
         self.p_group = 0.3
         self.num_steps = int(self.t_cue_spacing *  self.n_cues + self.silence_duration + self.recall_duration)
 

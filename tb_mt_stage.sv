@@ -5,7 +5,7 @@
 
 
 integer counterRecieved = 0;
-logic packet_expand_done = 0;
+integer counterSent = 0;
 
 //integer ts_len = 50;
 
@@ -27,7 +27,9 @@ module tb_mt_stage;
 
     logic finish;
     logic [`DATA_W-1:0] expandedPacketsList[$];
+
     int fruits[`NUM_NEURONS][`ADDR_W][`CORE_CAPACITY];
+    int veggies[`NUM_NEURONS][`ADDR_W][`CORE_CAPACITY];
 
     // Definitions for directions
     typedef enum {EAST, NORTH, WEST, SOUTH, L1} direction_t;
@@ -58,6 +60,8 @@ module tb_mt_stage;
     integer packetLimitL1 = 0;
 
     integer counter_reset;
+    logic empty;
+    logic packet_expand_done = 0;
 
     //logic [14:0] tb_mt_stage.expandedPacketsList[$]; // Assuming 50 is enough to hold all expanded addresses
     integer i, j, index = 0;
@@ -105,6 +109,7 @@ module tb_mt_stage;
         ts_end = 0;
         simend = 0;
         counter_reset = 0;
+        empty = 0;
 
         reset = 1'b0; // Reset is active (low-active reset)
         #500;         // Delay to ensure reset is perceived as active
@@ -144,6 +149,7 @@ module tb_mt_stage;
         //#10; 
         @(posedge finish);
         $display("RECIEVED: %d", counterRecieved);
+        $display("SENT: %d", counterSent);
 
         //Display data for L1 direction
         // $display("Data for L1 direction:");
@@ -215,6 +221,7 @@ module tb_mt_stage;
 
     expand_packets ep(.counter_reset(counter_reset));
     signal_ts_end ste();
+    empty_expand_packets eep();
     //sync_remaining sr();
 
     // Stimulus for East direction
@@ -291,7 +298,7 @@ module expand_packets(input integer counter_reset);
  always @(counter_reset) begin
     begin
         //$display("HERE-");
-        packet_expand_done = 0;
+        tb_mt_stage.packet_expand_done = 0;
         //tb_mt_stage.expandedPacketsList.delete();
         expand_address_list(tb_mt_stage.packetListE, tb_mt_stage.packetLimitE, `EAST);
         expand_address_list(tb_mt_stage.packetListN, tb_mt_stage.packetLimitN, `NORTH);
@@ -304,10 +311,26 @@ module expand_packets(input integer counter_reset);
         // foreach(tb_mt_stage.expandedPacketsList[i]) begin
         //     tb_mt_stage.fruits[i] = tb_mt_stage.expandedPacketsList[i];
         // end
-        packet_expand_done = 1;
+        tb_mt_stage.packet_expand_done = 1;
     end
  end
 
+endmodule
+
+module empty_expand_packets();
+ always @(tb_mt_stage.empty) begin
+    //packet_expand_done = 0;
+    tb_mt_stage.expandedPacketsList.delete();
+    for (int i = 0; i < `NUM_NEURONS; i++) begin
+            for (int j = 0; j < `ADDR_W; j++) begin
+                for (int k = 0; k < `CORE_CAPACITY; k++) begin
+                    tb_mt_stage.fruits[i][j][k] = 0;
+                    tb_mt_stage.veggies[i][j][k] = 0;
+                end
+            end
+        end
+    tb_mt_stage.empty = 0;
+ end
 endmodule
 
 // module sync_remaining();
@@ -334,11 +357,11 @@ module signal_ts_end();
         tb_mt_stage.packetCounterS == tb_mt_stage.packetLimitS  &&
         tb_mt_stage.packetCounterL1 == tb_mt_stage.packetLimitL1 ) begin
 
-                $display("Counter is %d", tb_mt_stage.packetCounterE);
-                $display("Counter is %d", tb_mt_stage.packetCounterN);
-                $display("Counter is %d", tb_mt_stage.packetCounterW);
-                $display("Counter is %d", tb_mt_stage.packetCounterS);
-                $display("Counter is %d", tb_mt_stage.packetCounterL1);
+                // $display("Counter is %d", tb_mt_stage.packetCounterE);
+                // $display("Counter is %d", tb_mt_stage.packetCounterN);
+                // $display("Counter is %d", tb_mt_stage.packetCounterW);
+                // $display("Counter is %d", tb_mt_stage.packetCounterS);
+                // $display("Counter is %d", tb_mt_stage.packetCounterL1);
 
                 tb_mt_stage.ts_end++;
             end
@@ -360,11 +383,12 @@ module stimulus(
     initial begin
         counter_out = 0;
     end
-    always @(ack, input_req, packet_expand_done) begin
+    always @(ack, input_req, tb_mt_stage.packet_expand_done) begin
         
         //$display("Data is %b", packet_list[counter]);
         //$display("OUT %d", counter);
-        if (ack == input_req && packet_expand_done == 1 && counter < limit) begin
+        if (ack == input_req && tb_mt_stage.packet_expand_done == 1 && counter < limit) begin
+            counterSent += 1;
             //$display("IN");
             //$display("Data SENT %b", packet_list[counter]);
        	    //#150 stimulus <= {data_list[counter], address_list[counter]};
@@ -413,7 +437,8 @@ module check_packet_transit(
             tb_mt_stage.fruits[message_first_half][core_id][message_second_half] -= 1;
 
         end else begin
-            $display("Value %b not found in the packet list.", dataOut);
+            //$display("Value %b not found in the packet list.", dataOut);
+            tb_mt_stage.veggies[message_first_half][core_id][message_second_half] += 1;
         end
         if ($size(tb_mt_stage.expandedPacketsList) <= 0) begin
             //$display("DELIVERED EVERYTHING BITCH %d %d", tb_mt_stage.counter_reset, $size(tb_mt_stage.expandedPacketsList));
