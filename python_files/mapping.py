@@ -66,6 +66,8 @@ class Mapping:
         print("NIR TO CORES:",self.NIR_to_cores)
         #print("NEURON TO CORE:",self.neuron_to_core)
         print("BUFFER MAP:",self.buffer_map)
+
+        print("CORE CAPACITY", self.core_capacity)
     
     def _allocate_neurons_to_cores(self):
         core_allocation = {}
@@ -88,7 +90,6 @@ class Mapping:
                     raise Exception("Output layer does not fit in one core!")
 
                 # Ensure the last layer is in the same core
-                
                 if not full_capacity_reached:
                     core_id += 1
                 core_start_index = 0

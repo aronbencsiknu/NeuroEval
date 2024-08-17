@@ -6,14 +6,14 @@ import snntorch.spikeplot as splt
 import matplotlib.pyplot as plt
 
 class BinaryNavigationDataset(Dataset):
-    def __init__(self, batch_size, seq_len, n_neuron, recall_duration, p_group, f0=0.5,
+    def __init__(self, seq_len, n_neuron, recall_duration, p_group, f0=0.5,
                  n_cues=7, t_cue=100, t_interval=150, n_input_symbols=4, length=100):
         
         self.data = []
         self.targets = []
         for i in range(length):
             data, targets = self.generate_click_task_data(
-                batch_size, seq_len, n_neuron, recall_duration, p_group, f0,
+                seq_len, n_neuron, recall_duration, p_group, f0,
                 n_cues, t_cue, t_interval, n_input_symbols
             )
             self.data.append(data)
@@ -42,7 +42,7 @@ class BinaryNavigationDataset(Dataset):
         spikes = prob_pattern > rng.rand(prob_pattern.size).reshape(shp)
         return spikes
 
-    def generate_click_task_data(self, batch_size, seq_len, n_neuron, recall_duration, p_group, f0=0.5,
+    def generate_click_task_data(self, seq_len, n_neuron, recall_duration, p_group, f0=0.5,
                                 n_cues=7, t_cue=100, t_interval=150,
                                 n_input_symbols=4):
         t_seq = seq_len
@@ -81,22 +81,22 @@ class BinaryNavigationDataset(Dataset):
 
         return data, targets
 
-# # Parameters
+#Parameters
 # n_in = 20
-# t_cue_spacing = 20
-# silence_duration = 100
+# t_cue_spacing = 15
+# silence_duration = 50
 # recall_duration = 20
 # seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
 # batch_size = 10
 # input_f0 = 40. / 100.
 # p_group = 0.3
 # n_cues = 7
-# t_cue = 20
+# t_cue = 10
 # t_interval = t_cue_spacing
 # n_input_symbols = 4
 
 # # Create dataset and dataloader
-# dataset = BinaryNavigationDataset(batch_size, seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_interval, n_input_symbols)
+# dataset = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_interval, n_input_symbols)
 # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # print(len(dataset))
@@ -115,4 +115,4 @@ class BinaryNavigationDataset(Dataset):
 #     plt.xlabel("Time step")
 #     plt.ylabel("Neuron Number")
 #     plt.show()
-#     #break  # Only display the first batch
+#     break  # Only display the first batch

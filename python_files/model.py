@@ -5,40 +5,48 @@ from snntorch import RSynaptic
 import torch.nn as nn
 
 class SpikingNet(torch.nn.Module):
-    def __init__(self, opt):
+    def __init__(self, opt, spike_grad=None, learn_alpha=False, learn_beta=False, learn_treshold=False):
         super().__init__()
 
         # Initialize layers
         self.fc1 = nn.Linear(opt.num_inputs, opt.num_hidden1)
         self.fc1.__setattr__("bias",None) # biological plausability
-        self.lif1 = snn.RSynaptic(alpha=0.9, beta=0.9, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
+        self.lif1 = snn.RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
         self.lif1.recurrent.__setattr__("bias",None) # biological plausability
 
         self.fc2 = nn.Linear(opt.num_hidden1, opt.num_outputs)
         self.fc2.__setattr__("bias",None) # biological plausability
-        self.lif2 = snn.Leaky(beta=0.9)
+        self.lif2 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
 
         # #Set all the weights to 1
-        # nn.init.constant_(self.fc1.weight, 1.0)
-        # nn.init.constant_(self.fc2.weight, 1.0)
+        #nn.init.constant_(self.fc1.weight, 1.0)
+        #nn.init.constant_(self.fc2.weight, 1.0)
 
         self.num_steps = opt.num_steps
 
-    def forward(self, x, time_first=True, indices_to_lock = None):
+    def init_neurons():
+        pass
 
-        # def zero_and_lock_weights(layer, indices):
-        #     # Step 2: Access and modify the weights at specified indices
-        #     #for idx in indices:
-        #         #print("HELLO",idx)
-        #         #layer.weight.data[idx] = 0
+    def forward_one_ts(self, x, spk1, syn1, mem1, mem2, time_first=True):
+        #spk1, syn1, mem1 = self.lif1.init_rsynaptic()
+        #mem2 = self.lif2.init_leaky()
+        if not time_first:
+            #test = data
+            x=x.transpose(1, 0)
 
-        #     # Function to zero out specific gradients
-        #     def zero_out_grads(grad):
-                
-        #         grad = grad.clone()
-        #         for idx in indices:
-        #             grad[idx] = 0
-        #         return grad
+        ## Input layer
+        cur1 = self.fc1(x)
+
+        ### Recurrent layer
+        spk1, syn1, mem1 = self.lif1(cur1, spk1, syn1, mem1)
+
+        ### Output layer
+        cur2 = self.fc2(spk1)
+        spk2, mem2 = self.lif2(cur2, mem2)
+
+        return spk2, spk1, syn1, mem1, mem2
+
+    def forward(self, x, time_first=True):
 
         spk1, syn1, mem1 = self.lif1.init_rsynaptic()
         mem2 = self.lif2.init_leaky()
@@ -49,24 +57,6 @@ class SpikingNet(torch.nn.Module):
         spk2_rec = []
         mem2_rec = []
 
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        
-        # def zero_out_weights(layer, indices):
-        #     with torch.no_grad():  # Ensure we do not track this operation for autograd
-        #       for idx in indices:
-        #         layer.weight.data[idx] = 0
-        #         #layer.weight.scatter_(0, torch.tensor(indices).to(device), 0)
-              
-        #       def zero_out_grads(grad):
-        #         grad = grad.clone()
-        #         for idx in indices:
-        #             grad[idx] = 0
-        #         return grad
-        
-        #     return layer
-
-        # if indices_to_lock is not None:
-        #     self.lif1.recurrent.weight.register_hook(zero_out_weights(self.lif1.recurrent, indices_to_lock["indices"]))
         if not time_first:
             #test = data
             x=x.transpose(1, 0)
