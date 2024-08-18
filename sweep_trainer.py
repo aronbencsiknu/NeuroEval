@@ -23,7 +23,7 @@ print("!!IMPORTANT!! You need to create a WandB account and paste your authoriza
 print("\n#########################################")
 print("#########################################\n")
 
-torch.manual_seed(42)
+#torch.manual_seed(42)
 
 # key=v.wandb_key
 # wandb.login(key=key)
@@ -39,7 +39,7 @@ config = {'method': 'random'}
 config['metric'] = sweep_handler.metric
 config['parameters'] = sweep_handler.parameters_dict
 
-sweep_id = wandb.sweep(config, project="NeuroEval_03")
+sweep_id = wandb.sweep(config, project="NeuroEval_09")
 
 # Parameters
 n_in = v.num_inputs
@@ -55,8 +55,7 @@ n_cues = v.n_cues
 t_cue = v.t_cue
 n_input_symbols = 4
 
-train_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=500)
-val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
+
 
 #sweep()
 
@@ -85,9 +84,10 @@ def sweep(config=None):
         
 
         # Create dataloader
-        
+        train_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
+        val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=50)
         train_loader = DataLoader(train_set, batch_size=config.batch_size, shuffle=True, num_workers=0)
-        test_loader = DataLoader(train_set, batch_size=10, shuffle=True, num_workers=0)
+        test_loader = DataLoader(val_set, batch_size=config.batch_size, shuffle=True, num_workers=0)
         
         trainer = Trainer(net,
                         train_loader,
@@ -95,14 +95,15 @@ def sweep(config=None):
                         v.target_sparcity,
                         v.recall_duration,
                         num_epochs=v.num_epochs, 
-                        learning_rate=0.001, 
+                        learning_rate=config.learning_rate, 
+                        optimizer=config.optimizer,
                         target_frequency=v.target_fr,
                         num_steps=v.num_steps,
                         wandb_logging=True)
         
-        net, _ = trainer.train(v.device)
+        _, _ = trainer.train(v.device)
 
-        wandb.log({"Train loss": 0.1})
+        #wandb.log({"Train loss": 0.1})
 
 wandb.agent(sweep_id, sweep)
 wandb.finish()

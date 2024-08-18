@@ -23,7 +23,7 @@ async def testbench(dut):
     global expanded_packets
 
     #packets, expanded_packets = gp.snn_main(dut=None)
-    net, routing_matrices, routing_map, mapping, dataset = gp.snn_init(dut=None)
+    net, routing_matrices, routing_map, mapping, train_set, val_set = gp.snn_init(dut=None)
     # spk1, syn1, mem1 = net.lif1.init_rsynaptic()
     # mem2 = net.lif2.init_leaky()
     # print(routing_matrices)

@@ -37,6 +37,8 @@ class Trainer:
             spike_train[t] = (torch.rand(input_data.size()) < (input_data * spike_prob)).float()
 
         return spike_train
+    
+
     def eval(self, device, val_idx):
         counter =  0
         acc = 0
@@ -48,14 +50,15 @@ class Trainer:
                 target = target.to(device)
                 outputs, _ = self.net(data, time_first=False)
                 acc += SF.acc.accuracy_rate(outputs, target)
-                loss = self.criterion(outputs[-self.recall_duration:], target)
+                val_loss = self.criterion(outputs[-self.recall_duration:], target)
                 if self.wandb_logging:
-                    wandb.log({"Val loss": loss.item(),
+                    wandb.log({"Val loss": val_loss.item(),
                             "Val index": val_idx})
                 counter += 1
                 val_idx += 1
         
         return acc/counter, val_idx
+    
 
     def train(self, device, mapping=None, dut=None):
         self.net = self.net.to(device)
@@ -79,15 +82,14 @@ class Trainer:
                 grad[idx] = 0
             return grad
         
-        # def test(module, input, output):
-        #      global indices
-        #      for idx in indices["indices"]:
-        #         module.weight.data[idx] = 0
-
-        # self.net.lif1.recurrent.register_forward_hook(test)
+        def zero_out_weights(module, input, output):
+            global indices
+            for idx in indices["indices"]:
+                module.weight.data[idx] = 0
 
         if indices is not None and self.target_sparcity != 1.0:
             self.net.lif1.recurrent.weight.register_hook(zero_out_grads)
+            self.net.lif1.recurrent.register_forward_hook(zero_out_weights)
 
         train_index = 0
         val_index = 0
@@ -101,9 +103,7 @@ class Trainer:
                 
                 # print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
                 # print("RATIO LR", ratio)
-                if self.target_sparcity != 1.0:
-                    mapping = utils.choose_conn_remove(mapping, reps=conn_reps)
-                    indices = mapping.indices_to_lock
+                
                 
                 # Forward pass
                 outputs, _ = self.net(data, time_first=False)
@@ -113,7 +113,7 @@ class Trainer:
                 # Calculate loss
                 loss = self.criterion(outputs[-self.recall_duration:], target)
                 if self.wandb_logging:
-                    wandb.log({"Train loss": loss.item(),
+                    wandb.log({"loss": loss.item(),
                             "Train index": train_index})
 
                 # Backward pass and optimization
@@ -124,17 +124,24 @@ class Trainer:
                 train_index+=1
             # Print loss
             if (epoch + 1) % 10 == 0 or epoch == 0:
+
+                accuracy, val_index = self.eval(device, val_index)
+                print(accuracy)
+
                 temp = f"Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.4f}"
                 
                 if dut is not None:
                     dut._log.info(temp)
                 else:
                     print(temp)
-
-                accuracy, val_index = self.eval(device, val_index)
-                #print(accuracy)
+               
                 #wandb.log({"Train Accuracy": accuracy})
             
+            # remove connections at each epoch
+            if self.target_sparcity != 1.0:
+                    mapping = utils.choose_conn_remove(mapping, reps=conn_reps)
+                    indices = mapping.indices_to_lock
+                    print("Updated weights:\n", self.net.lif1.recurrent.weight.data)
             
         if self.target_sparcity != 1.0:
             num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)

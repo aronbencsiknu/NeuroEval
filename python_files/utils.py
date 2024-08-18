@@ -87,7 +87,7 @@ def init_network(net, sample_data):
 
     return net
 
-def repeat_and_convert_packets(packets, packets_dict, address_length):
+def repeat_and_convert_packets(packets, packets_dict, address_length, neuron_idx=True):
     #final_packet_list = []
     #expanded_packets_list = []
     expanded_packets_dict = {}
@@ -117,13 +117,15 @@ def repeat_and_convert_packets(packets, packets_dict, address_length):
         
         prev_mock_message = None
         for i in range(reps):
-            mock_message = generate_message_neuron_idx(source_neuron_index, dest_neuron_start_index+i)
+            if neuron_idx:
+                mock_message = generate_message_neuron_idx(source_neuron_index, dest_neuron_start_index+i)
+            else:
+                mock_message = generate_message()
+                if mock_message == prev_mock_message:
+                    while mock_message == prev_mock_message:
+                        mock_message = generate_message()
 
-            # if mock_message == prev_mock_message:
-            #     while mock_message == prev_mock_message:
-            #         mock_message = generate_message()
-
-            prev_mock_message = mock_message
+                prev_mock_message = mock_message
             temp = [mock_message+updated_address]
 
             dictionary[source_core].extend(temp)
@@ -162,7 +164,7 @@ def generate_message_neuron_idx(s_idx, d_idx, message_width=20):
     #print("DEST INDEX",format(s_idx, f'0{int(message_width/2)}b') +":"+ format(d_idx, f'0{int(message_width/2)}b'))
     return format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b')
 
-def generate_message(message_width=10):
+def generate_message(message_width=20):
     global counter
 
     # Calculate the maximum value based on the message width

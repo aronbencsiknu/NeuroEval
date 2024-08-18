@@ -31,7 +31,8 @@ def snn_init(dut=None):
 
     indices_to_lock = {
         #"indices": list(itertools.product(range(100), repeat=2)),
-        "indices": [(0, 1),(1,80),(2,70)],
+        #"indices": [(0, 1),(1,80),(2,70)],
+        "indices": [],
         "layers"  : ("lif1","lif1")}
 
     # -------------------------------------------------
@@ -71,12 +72,15 @@ def snn_init(dut=None):
     n_input_symbols = 4
 
     # Create dataset and dataloader
-    dataset = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=0)
+    train_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
+    val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=50)
+    train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True, num_workers=0)
     # -------------------------------------------------
 
     trainer = Trainer(net,
-                      dataloader,
+                      train_loader,
+                      val_loader,
                       v.target_sparcity,
                       v.recall_duration,
                       graph=gp,
@@ -143,9 +147,9 @@ def snn_init(dut=None):
 
         routing_matrices[layer_name] = routing_matrix
 
-    return net, routing_matrices, routing_map, mapping, dataset
+    return net, routing_matrices, routing_map, mapping, train_set, val_set
     
-def delay_experiment(dut, net, routing_matrices, routing_map, mapping, dataset):
+def delay_experiment(net, routing_matrices, routing_map, mapping, dataset):
 
     # # -------------------------------------------------
 
@@ -365,7 +369,7 @@ def delay_experiment(dut, net, routing_matrices, routing_map, mapping, dataset):
     for packet in packets:
         # every iteration is one timestep
 
-        temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict, s.ADDR_W)
+        temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict, s.ADDR_W, neuron_idx=False)
         
         expanded_packets_list.append(expanded_packets)
 

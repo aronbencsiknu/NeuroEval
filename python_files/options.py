@@ -6,9 +6,9 @@ class Variables(object):
         self.num_hidden1 = 100
         self.num_outputs = 2
         self.core_capacity = 50
-        self.num_epochs = 20
+        self.num_epochs = 100
         self.lr = 0.0001
-        self.target_fr = 0.5
+        self.target_fr = 1.0
         self.bs = 25
         self.num_cores = 5
         self.target_sparcity = 1.0
@@ -16,7 +16,7 @@ class Variables(object):
 
         self.recall_duration = 20
         self.t_cue_spacing = 15
-        self.silence_duration = 50
+        self.silence_duration = 30
         self.n_cues = 7
         self.t_cue = 10
         self.p_group = 0.3
