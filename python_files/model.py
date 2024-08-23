@@ -3,15 +3,16 @@ import snntorch as snn
 import snntorch.functional as SF
 from snntorch import RSynaptic
 import torch.nn as nn
+from snntorch import surrogate
 
 class SpikingNet(torch.nn.Module):
-    def __init__(self, opt, spike_grad=None, learn_alpha=False, learn_beta=False, learn_treshold=False):
+    def __init__(self, opt, spike_grad=surrogate.fast_sigmoid(), learn_alpha=True, learn_beta=True, learn_treshold=True):
         super().__init__()
 
         # Initialize layers
         self.fc1 = nn.Linear(opt.num_inputs, opt.num_hidden1)
         self.fc1.__setattr__("bias",None) # biological plausability
-        self.lif1 = snn.RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
+        self.lif1 = RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
         self.lif1.recurrent.__setattr__("bias",None) # biological plausability
 
         self.fc2 = nn.Linear(opt.num_hidden1, opt.num_outputs)

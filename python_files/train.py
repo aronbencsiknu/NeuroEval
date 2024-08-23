@@ -2,12 +2,12 @@ import torch
 import torch.optim as optim
 import snntorch.functional as SF  # Ensure this module is correctly imported
 from . import utils
-import wandb
+#import wandb
 
 indices = None
 
 class Trainer:
-    def __init__(self, net, train_loader, val_loader, target_sparcity, recall_duration, graph=None, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, num_steps=10, optimizer="Adam",wandb_logging=False):
+    def __init__(self, net, train_loader, val_loader, target_sparcity, recall_duration, graph=None, num_epochs=150, learning_rate=1e-4, target_frequency=0.5, num_steps=10, optimizer="AdamW",wandb_logging=False):
         self.net = net
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -87,9 +87,9 @@ class Trainer:
             for idx in indices["indices"]:
                 module.weight.data[idx] = 0
 
-        if indices is not None and self.target_sparcity != 1.0:
-            self.net.lif1.recurrent.weight.register_hook(zero_out_grads)
-            self.net.lif1.recurrent.register_forward_hook(zero_out_weights)
+        # if indices is not None and self.target_sparcity != 1.0:
+        #     self.net.lif1.recurrent.weight.register_hook(zero_out_grads)
+        #     self.net.lif1.recurrent.register_forward_hook(zero_out_weights)
 
         train_index = 0
         val_index = 0
@@ -118,15 +118,41 @@ class Trainer:
 
                 # Backward pass and optimization
                 self.optimizer.zero_grad()
+
+                # if indices is not None and self.target_sparcity != 1.0:
+                #     layer = self.net.lif1.recurrent
+                #     for idx in indices["indices"]:
+                #         layer.weight.data[idx] = 0
+                #         layer.weight.grad[idx] = 0
+
+                #     self.net.lif1.recurrent = layer
+
                 loss.backward()
+
+                if indices is not None and self.target_sparcity != 1.0:
+                    layer = self.net.lif1.recurrent
+                    for idx in indices["indices"]:
+                        layer.weight.data[idx] = 0
+                        layer.weight.grad[idx] = 0
+
+                    self.net.lif1.recurrent = layer
+
                 self.optimizer.step()
+
+                if indices is not None and self.target_sparcity != 1.0:
+                    layer = self.net.lif1.recurrent
+                    for idx in indices["indices"]:
+                        layer.weight.data[idx] = 0
+                        layer.weight.grad[idx] = 0
+
+                    self.net.lif1.recurrent = layer
 
                 train_index+=1
             # Print loss
             if (epoch + 1) % 10 == 0 or epoch == 0:
 
-                accuracy, val_index = self.eval(device, val_index)
-                print(accuracy)
+                #accuracy, val_index = self.eval(device, val_index)
+                #print("ACCURACY",accuracy)
 
                 temp = f"Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.4f}"
                 
@@ -141,10 +167,13 @@ class Trainer:
             if self.target_sparcity != 1.0:
                     mapping = utils.choose_conn_remove(mapping, reps=conn_reps)
                     indices = mapping.indices_to_lock
+                    
                     print("Updated weights:\n", self.net.lif1.recurrent.weight.data)
             
         if self.target_sparcity != 1.0:
             num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
             print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
         
-        return self.net, mapping
+        final_accuracy, val_index = self.eval(device, val_index)
+        print("FINAL ACCURACY",final_accuracy)
+        return self.net, mapping, final_accuracy

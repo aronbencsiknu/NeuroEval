@@ -81,7 +81,7 @@ async def testbench(dut):
     
     max_iters = 20
     print("NUM STEPS",v.num_steps)
-    sys.exit()
+    #sys.exit()
     for i in range(0,max_iters):
 
         x, _ = dataset[0]

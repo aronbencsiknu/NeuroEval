@@ -88,7 +88,7 @@ class BinaryNavigationDataset(Dataset):
 # recall_duration = 20
 # seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
 # batch_size = 10
-# input_f0 = 40. / 100.
+# input_f0 = 40. / 30.
 # p_group = 0.3
 # n_cues = 7
 # t_cue = 10
@@ -109,7 +109,7 @@ class BinaryNavigationDataset(Dataset):
 #     fig = plt.figure(facecolor="w", figsize=(10, 5))
 #     ax = fig.add_subplot(111)
 
-#     splt.raster(data, ax, s=1.5, c="black")
+#     splt.raster(data, ax, s=5, c="blue")
 
 #     plt.title("Input Layer")
 #     plt.xlabel("Time step")
