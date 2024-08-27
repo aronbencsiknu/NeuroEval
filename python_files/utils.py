@@ -162,6 +162,7 @@ def _count_address_list(in_a, in_m, addr_width=5):
 def generate_message_neuron_idx(s_idx, d_idx, message_width=20):
     #print("START_INDEX", s_idx)
     #print("DEST INDEX",format(s_idx, f'0{int(message_width/2)}b') +":"+ format(d_idx, f'0{int(message_width/2)}b'))
+    print(s_idx, d_idx, format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b'))
     return format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b')
 
 def generate_message(message_width=20):
@@ -184,8 +185,7 @@ def generate_message(message_width=20):
     return message_bits
 
 def count_target_neurons(layer_name, source_core, idx, target_cores, buffer_map):
-    # num_lr_dest = []
-    # num_sr_dest = []
+
     num_lr_dest_neurons = 0
     num_sr_dest_neurons = 0
 
@@ -217,21 +217,25 @@ def calculate_lr_sr_conns(mapping, graph):
     
     num_long_range_conns = 0
     num_short_range_conns = 0
+
+    source_layer = mapping.indices_to_lock['layers'][0]
+    dest_layer = mapping.indices_to_lock['layers'][1]
     
     for layer_name, size in mapping.mem_potential_sizes.items():
-        
-        for source_core, start_idx, end_idx in mapping.core_allocation[layer_name]:
-            downstream_nodes = list(graph.graph.successors(layer_name))
-            for idx in range(start_idx, end_idx+1):
-                target_cores = []
-                for downstream_node in downstream_nodes:
-                    if downstream_node != "output":
-                        target_cores = mapping.NIR_to_cores[downstream_node]
-                        lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(layer_name, source_core, idx, target_cores, mapping.buffer_map)
+        if layer_name == source_layer:
+            for source_core, start_idx, end_idx in mapping.core_allocation[layer_name]:
+                downstream_nodes = list(graph.graph.successors(layer_name))
+                for idx in range(start_idx, end_idx+1):
+                    target_cores = []
+                    for downstream_node in downstream_nodes:
+                        #if downstream_node != "output":
+                        if downstream_node == dest_layer:
+                            target_cores = mapping.NIR_to_cores[downstream_node]
+                            lr_target_nerons, sr_target_neurons, lr_subtract, sr_subtract = count_target_neurons(layer_name, source_core, idx, target_cores, mapping.buffer_map)
 
-                        
-                        num_long_range_conns += lr_target_nerons - lr_subtract
-                        num_short_range_conns += sr_target_neurons - sr_subtract
+                            
+                            num_long_range_conns += lr_target_nerons - lr_subtract
+                            num_short_range_conns += sr_target_neurons - sr_subtract
 
     return num_long_range_conns, num_short_range_conns
     
@@ -259,7 +263,7 @@ def choose_conn_remove(mapping, reps=None):
         source_rand_index = random.randint(source_core_allocation[1], source_core_allocation[2])
         dest_rand_index = random.randint(dest_core_allocation[1], dest_core_allocation[2])
 
-        if (source_rand_index, dest_rand_index) in mapping.indices_to_lock['layers']:
+        if (source_rand_index, dest_rand_index) in mapping.indices_to_lock['indices']:
             continue
 
         mapping.indices_to_lock['indices'].append((source_rand_index, dest_rand_index))

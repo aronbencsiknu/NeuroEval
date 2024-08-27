@@ -42,9 +42,10 @@ class Trainer:
     def eval(self, device, val_idx):
         counter =  0
         acc = 0
-
+        
         self.net.eval()
         with torch.no_grad():
+            #print("Updated weights:\n", self.net.lif1.recurrent.weight.data)
             for data, target in self.val_loader:
                 data = data.to(device)
                 target = target.to(device)
@@ -72,7 +73,7 @@ class Trainer:
             print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
 
             # how many connections to remove each (epoch?)
-            conn_reps = int((num_long_range_conns - num_long_range_conns * self.target_sparcity)/(self.num_epochs+1))
+            conn_reps = int((num_long_range_conns - num_long_range_conns * self.target_sparcity)/(self.num_epochs))
 
             print("CONN REPS", conn_reps)
 
@@ -93,6 +94,7 @@ class Trainer:
 
         train_index = 0
         val_index = 0
+        accuracies = []
         for epoch in range(self.num_epochs):
             self.net.train()
             for data, target in self.train_loader:
@@ -119,14 +121,6 @@ class Trainer:
                 # Backward pass and optimization
                 self.optimizer.zero_grad()
 
-                # if indices is not None and self.target_sparcity != 1.0:
-                #     layer = self.net.lif1.recurrent
-                #     for idx in indices["indices"]:
-                #         layer.weight.data[idx] = 0
-                #         layer.weight.grad[idx] = 0
-
-                #     self.net.lif1.recurrent = layer
-
                 loss.backward()
 
                 if indices is not None and self.target_sparcity != 1.0:
@@ -151,7 +145,8 @@ class Trainer:
             # Print loss
             if (epoch + 1) % 10 == 0 or epoch == 0:
 
-                #accuracy, val_index = self.eval(device, val_index)
+                accuracy, val_index = self.eval(device, val_index)
+                accuracies.append(accuracy)
                 #print("ACCURACY",accuracy)
 
                 temp = f"Epoch [{epoch+1}/{self.num_epochs}], Loss: {loss.item():.4f}"
@@ -168,12 +163,13 @@ class Trainer:
                     mapping = utils.choose_conn_remove(mapping, reps=conn_reps)
                     indices = mapping.indices_to_lock
                     
-                    print("Updated weights:\n", self.net.lif1.recurrent.weight.data)
+                    #print("Updated weights:\n", self.net.lif1.recurrent.weight.data)
             
         if self.target_sparcity != 1.0:
             num_long_range_conns, num_short_range_conns = utils.calculate_lr_sr_conns(mapping, self.graph)
             print("lr:",num_long_range_conns,"// sr:",num_short_range_conns)
         
         final_accuracy, val_index = self.eval(device, val_index)
+        accuracies.append(final_accuracy)
         print("FINAL ACCURACY",final_accuracy)
-        return self.net, mapping, final_accuracy
+        return self.net, mapping, max(accuracies)

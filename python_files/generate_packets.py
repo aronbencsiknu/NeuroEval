@@ -74,7 +74,7 @@ def snn_init(dut=None):
 
     # Create dataset and dataloader
     train_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
-    val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
+    val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=500)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=0)
     val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True, num_workers=0)
     # -------------------------------------------------
@@ -141,7 +141,8 @@ def snn_init(dut=None):
                 routing_map[h] = packet_information
 
                 routing_matrix[idx] = h
-
+                if reps < 0:
+                    print("REP -", reps)
                 dest_neuron_start_index += reps
 
             source_neuron_index += 1

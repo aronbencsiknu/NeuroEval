@@ -23,7 +23,8 @@ async def testbench(dut):
     global expanded_packets
 
     #packets, expanded_packets = gp.snn_main(dut=None)
-    net, routing_matrices, routing_map, mapping, train_set, val_set = gp.snn_init(dut=None)
+    net, routing_matrices, routing_map, mapping, _, val_set, final_accuracy = gp.snn_init(dut=None)
+
     # spk1, syn1, mem1 = net.lif1.init_rsynaptic()
     # mem2 = net.lif2.init_leaky()
     # print(routing_matrices)
@@ -72,7 +73,8 @@ async def testbench(dut):
               return None, None, True
 
          if idx + max_dut_len > length:
-              
+              for element in packets[idx:length]:
+                  print(element)
               chunk = [int(element, base=2) for element in packets[idx:length]] + [0]*(max_dut_len-(length - idx))
               return chunk, length - idx, False
          
@@ -84,7 +86,7 @@ async def testbench(dut):
     #sys.exit()
     for i in range(0,max_iters):
 
-        x, _ = dataset[0]
+        x, _ = val_set[0]
         #spike_record = {}
         #output_spikes, spk1, syn1, mem1, mem2 = net.forward_one_ts(x[i].to(v.device), spk1, syn1, mem1, mem2, time_first=True)
 
@@ -109,7 +111,7 @@ async def testbench(dut):
             s.L1: []
         }
         temp, expanded_packets = utils.repeat_and_convert_packets(packets_in_ts, final_packets_dict, s.ADDR_W)
-        
+        print(temp)
         for key in final_packets_dict:
             if key in temp:
                 final_packets_dict[key] = temp[key] 
