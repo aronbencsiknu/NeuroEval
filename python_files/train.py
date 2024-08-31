@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-import snntorch.functional as SF  # Ensure this module is correctly imported
+import snntorch.functional as SF
 from . import utils
 #import wandb
 
@@ -50,7 +50,13 @@ class Trainer:
                 data = data.to(device)
                 target = target.to(device)
                 outputs, _ = self.net(data, time_first=False)
-                acc += SF.acc.accuracy_rate(outputs, target)
+
+                # print("OUTPUT TYPE", type(outputs))
+                # print("TARGET TYPE", type(target))
+
+                # print("OUTS", outputs)
+                # print("TARGS", target)
+                acc += SF.acc.accuracy_rate(outputs[-self.recall_duration:], target)
                 val_loss = self.criterion(outputs[-self.recall_duration:], target)
                 if self.wandb_logging:
                     wandb.log({"Val loss": val_loss.item(),
@@ -172,4 +178,4 @@ class Trainer:
         final_accuracy, val_index = self.eval(device, val_index)
         accuracies.append(final_accuracy)
         print("FINAL ACCURACY",final_accuracy)
-        return self.net, mapping, max(accuracies)
+        return self.net, mapping, max(accuracies), final_accuracy

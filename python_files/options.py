@@ -5,13 +5,13 @@ class Variables(object):
         self.num_inputs = 20
         self.num_hidden1 = 100
         self.num_outputs = 2
-        self.core_capacity = 50 # calculated automatically during mapping
-        self.num_epochs = 10
+        self.core_capacity = 25 # calculated automatically during mapping
+        self.num_epochs = 20
         self.lr = 0.0001
         self.target_fr = 1.0
         self.bs = 10
         self.num_cores = 5
-        self.target_sparcity = 0.1
+        self.target_sparcity = 1.0
         self.wandb_key = "edfb94e4b9dca47c397a343d2829e9af262d9e32"
 
         self.recall_duration = 20

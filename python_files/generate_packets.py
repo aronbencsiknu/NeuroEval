@@ -31,8 +31,6 @@ def snn_init(dut=None):
     net = utils.init_network(net, sample_data)
 
     indices_to_lock = {
-        #"indices": list(itertools.product(range(100), repeat=2)),
-        #"indices": [(0, 1),(1,80),(2,70)],
         "indices": [],
         "layers"  : ("lif1","lif1")}
 
@@ -90,7 +88,7 @@ def snn_init(dut=None):
                       target_frequency=v.target_fr, 
                       num_steps=v.num_steps)
     
-    net, mapping, final_accuracy = trainer.train(v.device, mapping, dut)
+    net, mapping, max_accuracy, final_accuracy = trainer.train(v.device, mapping, dut)
 
     # -------------------------------------------------
 
@@ -149,7 +147,7 @@ def snn_init(dut=None):
 
         routing_matrices[layer_name] = routing_matrix
 
-    return net, routing_matrices, routing_map, mapping, train_set, val_set, final_accuracy
+    return net, routing_matrices, routing_map, mapping, train_set, val_set, max_accuracy, final_accuracy
     
 def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, idx=0):
     net = copy.deepcopy(network)
@@ -259,9 +257,10 @@ class DynamicInference:
         self.net = net
         self.spike_record = {}
         self.hooks = []
+        
+    def init_membranes(self):
         self.spk1, self.syn1, self.mem1 = self.net.lif1.init_rsynaptic()
         self.mem2 = self.net.lif2.init_leaky()
-
     # Method to reset spike recording and hooks
     def reset_spike_record_and_hooks(self):
         # Clear the spike_record dictionary
@@ -287,9 +286,29 @@ class DynamicInference:
             if isinstance(module, snn.Leaky) or isinstance(module, snn.RSynaptic):
                 self.hooks.append(module.register_forward_hook(self.create_spike_hook(name)))
 
-    def advance_inference(self, data):
+    def advance_inference(self, data, skipped_spikes=None, add_spikes=None):
+        skipped_spikes_list = []
+        add_spikes_list = []
+        if skipped_spikes is not None:
+            for s_idx, source_index in enumerate(skipped_spikes):
+                for d_idx, dest_core in enumerate(source_index):
+                    for r_idx, element in enumerate(dest_core):
+                        if element != 0:
+                            #print("CORE CAPACITY", v.core_capacity)
+                            #print("ELEMENT", element, s_idx, d_idx, r_idx)
+                            skipped_spikes_list.append((element, s_idx, (d_idx)*v.core_capacity + r_idx))
+        
+        if add_spikes is not None:
+            for s_idx, source_index in enumerate(add_spikes):
+                for d_idx, dest_core in enumerate(source_index):
+                    for r_idx, element in enumerate(dest_core):
+                        if element != 0:
+                            #print("ELEMENT", element, s_idx, d_idx, r_idx)
+                            add_spikes_list.append((element, s_idx, (d_idx)*v.core_capacity + r_idx))
+
         self.spike_record = {}
+        
         output_spikes, self.spk1, self.syn1, self.mem1, self.mem2 = \
-            self.net.forward_one_ts(data.to(v.device), self.spk1, self.syn1, self.mem1, self.mem2, time_first=True)
+            self.net.forward_one_ts(data.to(v.device), self.spk1, self.syn1, self.mem1, self.mem2, cur_sub=skipped_spikes_list, cur_add=add_spikes_list, time_first=True)
 
         return self.spike_record, output_spikes

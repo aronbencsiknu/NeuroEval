@@ -162,7 +162,6 @@ def _count_address_list(in_a, in_m, addr_width=5):
 def generate_message_neuron_idx(s_idx, d_idx, message_width=20):
     #print("START_INDEX", s_idx)
     #print("DEST INDEX",format(s_idx, f'0{int(message_width/2)}b') +":"+ format(d_idx, f'0{int(message_width/2)}b'))
-    print(s_idx, d_idx, format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b'))
     return format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b')
 
 def generate_message(message_width=20):

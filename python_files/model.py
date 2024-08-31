@@ -28,12 +28,35 @@ class SpikingNet(torch.nn.Module):
     def init_neurons():
         pass
 
-    def forward_one_ts(self, x, spk1, syn1, mem1, mem2, time_first=True):
+    def forward_one_ts(self, x, spk1, syn1, mem1, mem2, cur_sub=None, cur_add=None, time_first=True):
         #spk1, syn1, mem1 = self.lif1.init_rsynaptic()
         #mem2 = self.lif2.init_leaky()
         if not time_first:
             #test = data
             x=x.transpose(1, 0)
+        curr_sub_rec = []
+        curr_add_rec = []
+        
+        curr_sub_fc = []
+        curr_add_fc = []
+        if cur_sub is not None:
+            for element in cur_sub:
+                #print("ELEMENT", element)
+                if element[2] > 99:
+                    curr_sub_fc.append(element)
+                    pass
+                else:
+                    curr_sub_rec.append(element)
+                    pass
+
+        if cur_add is not None:
+            for element in cur_add:
+                if element[2] > 99:
+                    curr_add_fc.append(element)
+                    pass
+                else:
+                    curr_add_rec.append(element)
+                    pass
 
         ## Input layer
         cur1 = self.fc1(x)
@@ -41,8 +64,45 @@ class SpikingNet(torch.nn.Module):
         ### Recurrent layer
         spk1, syn1, mem1 = self.lif1(cur1, spk1, syn1, mem1)
 
+        for element in curr_sub_rec:
+            multiplier = element[0]
+            w_idx = (element[2], element[1])
+            cur_idx = element[2]
+
+            weight = self.lif1.recurrent.weight.data[w_idx].item()
+
+            syn1[cur_idx] = syn1[cur_idx] - weight*multiplier
+
+        for element in curr_add_rec:
+            multiplier = element[0]
+            w_idx = (element[2], element[1])
+            cur_idx = element[2]
+
+            weight = self.lif1.recurrent.weight.data[w_idx].item()
+
+            syn1[cur_idx] = syn1[cur_idx] + weight*multiplier
+
         ### Output layer
         cur2 = self.fc2(spk1)
+
+        for element in curr_sub_fc:
+            multiplier = element[0]
+            w_idx = (element[2]-100, element[1])
+            cur_idx = element[2]-100
+            #print("WEIGHT DIMS", self.fc2.weight.data.shape)
+            weight = self.fc2.weight.data[w_idx].item()
+
+            cur2[cur_idx] = cur2[cur_idx] - weight*multiplier
+
+        for element in curr_add_fc:
+            multiplier = element[0]
+            w_idx = (element[2]-100, element[1])
+            cur_idx = element[2]-100
+
+            weight = self.fc2.weight.data[w_idx].item()
+
+            cur2[cur_idx] = cur2[cur_idx] + weight*multiplier
+
         spk2, mem2 = self.lif2(cur2, mem2)
 
         return spk2, spk1, syn1, mem1, mem2

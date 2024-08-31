@@ -19,8 +19,8 @@ module tb_mt_stage;
 	logic ReqInS, AckInS, ReqOutS, AckOutS; logic [0:`DATA_W-1] DataInS, DataOutS; // Port S
 	logic ReqInL1, AckInL1, ReqOutL1, AckOutL1; logic [0:`DATA_W-1] DataInL1, DataOutL1; // Port L1
 
-    logic simend;
-    logic ts_end;
+    logic everything_delivered;
+    logic finished_sending;
     logic sync;
     
     logic init_done;
@@ -106,8 +106,8 @@ module tb_mt_stage;
 
     initial begin
 
-        ts_end = 0;
-        simend = 0;
+        finished_sending = 0;
+        everything_delivered = 0;
         counter_reset = 0;
         empty = 0;
 
@@ -140,11 +140,8 @@ module tb_mt_stage;
         
         init_done = 1;
          
-        // $display("Initial size of packet list: %d", tb_mt_stage.expandedPacketsList.size());
-        //$display("HELLOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO");
         
-        
-        //@(posedge simend); // Wait for a positive edge
+        //@(posedge everything_delivered); // Wait for a positive edge
         
         //#10; 
         @(posedge finish);
@@ -220,7 +217,7 @@ module tb_mt_stage;
 	back_ack ba_L1(.req(ReqOutL1), .ack(AckOutL1), .reset(reset));
 
     expand_packets ep(.counter_reset(counter_reset));
-    signal_ts_end ste();
+    signal_finished_sending ste();
     empty_expand_packets eep();
     //sync_remaining sr();
 
@@ -285,11 +282,11 @@ module tb_mt_stage;
     );
 
     // Check which packets arrived correctly from the predefined list
-    check_packet_transit cpt_E(.dataOut(DataOutE), .req(ReqOutE), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`EAST));
-    check_packet_transit cpt_N(.dataOut(DataOutN), .req(ReqOutN), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`NORTH));
-    check_packet_transit cpt_W(.dataOut(DataOutW), .req(ReqOutW), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`WEST));
-    check_packet_transit cpt_S(.dataOut(DataOutS), .req(ReqOutS), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`SOUTH));
-    check_packet_transit cpt_L1(.dataOut(DataOutL1), .req(ReqOutL1), .ts_end_in(ts_end), .ts_end_out(ts_end), .core_id(`L1));
+    check_packet_transit cpt_E(.dataOut(DataOutE), .req(ReqOutE), .finished_sending_in(finished_sending), .finished_sending_out(finished_sending), .core_id(`EAST));
+    check_packet_transit cpt_N(.dataOut(DataOutN), .req(ReqOutN), .finished_sending_in(finished_sending), .finished_sending_out(finished_sending), .core_id(`NORTH));
+    check_packet_transit cpt_W(.dataOut(DataOutW), .req(ReqOutW), .finished_sending_in(finished_sending), .finished_sending_out(finished_sending), .core_id(`WEST));
+    check_packet_transit cpt_S(.dataOut(DataOutS), .req(ReqOutS), .finished_sending_in(finished_sending), .finished_sending_out(finished_sending), .core_id(`SOUTH));
+    check_packet_transit cpt_L1(.dataOut(DataOutL1), .req(ReqOutL1), .finished_sending_in(finished_sending), .finished_sending_out(finished_sending), .core_id(`L1));
 
 endmodule
 
@@ -344,7 +341,7 @@ endmodule
 //         end
 //     end
 // endmodule
-module signal_ts_end();
+module signal_finished_sending();
     always @(tb_mt_stage.packetCounterE,
         tb_mt_stage.packetCounterN,
         tb_mt_stage.packetCounterW,
@@ -363,7 +360,7 @@ module signal_ts_end();
                 // $display("Counter is %d", tb_mt_stage.packetCounterS);
                 // $display("Counter is %d", tb_mt_stage.packetCounterL1);
 
-                tb_mt_stage.ts_end++;
+                tb_mt_stage.finished_sending++;
             end
         end
     
@@ -387,13 +384,17 @@ module stimulus(
         
         //$display("Data is %b", packet_list[counter]);
         //$display("OUT %d", counter);
+        
         if (ack == input_req && tb_mt_stage.packet_expand_done == 1 && counter < limit) begin
             counterSent += 1;
             //$display("IN");
-            //$display("Data SENT %b", packet_list[counter]);
+            
        	    //#150 stimulus <= {data_list[counter], address_list[counter]};
             #150 stimulus <= packet_list[counter];
+            
             #150 output_req <= ~input_req; //METASTABILITY test
+            //$display("Data SENT %b -- %d", packet_list[counter], $time);
+            //$display();
 	        counter_out = counter + 1;  // Increment the counter
         end
         else begin
@@ -406,8 +407,8 @@ endmodule
 module check_packet_transit(
 	input logic [`DATA_W-1:0] dataOut,
     input req,
-    input logic ts_end_in,
-    output logic ts_end_out,
+    input logic finished_sending_in,
+    output logic finished_sending_out,
     input integer core_id
 );
 
@@ -421,6 +422,7 @@ module check_packet_transit(
         counterRecieved = counterRecieved + 1;
             
         message = dataOut[`ADDR_W+`MSG_W-1:`ADDR_W];
+        //$display("Data OUT- %b -- %d", dataOut, $time);
         message_first_half = message[`MSG_W-1:`MSG_W/2];
         message_second_half = message[(`MSG_W/2)-1:0];
         
@@ -442,7 +444,7 @@ module check_packet_transit(
         end
         if ($size(tb_mt_stage.expandedPacketsList) <= 0) begin
             //$display("DELIVERED EVERYTHING BITCH %d %d", tb_mt_stage.counter_reset, $size(tb_mt_stage.expandedPacketsList));
-                tb_mt_stage.simend++;
+                tb_mt_stage.everything_delivered++;
                 
         end
 

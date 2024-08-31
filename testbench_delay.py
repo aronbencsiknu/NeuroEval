@@ -24,10 +24,11 @@ timestep = 0
 sample = 0
 start_time = None
 
-num_samples = 2
-num_timesteps = 5
+num_samples = 1
+num_timesteps = 1
 
 packets = []
+temp_delays = []
 
 @cocotb.test()
 async def testbench(dut):
@@ -39,9 +40,8 @@ async def testbench(dut):
     global fixed_ts_indices
     global random_sample_indices
     global sample
+    net, routing_matrices, routing_map, mapping, _, val_set, max_accuracy, _ = gp.snn_init(dut=None)
     
-    net, routing_matrices, routing_map, mapping, _, val_set, final_accuracy = gp.snn_init(dut=None)
-
     random_sample_indices = random.sample(range(len(val_set)), num_samples)
     fixed_ts_indices = np.linspace(30, v.num_steps-1, num_timesteps).round().astype(int)
     print("NUM STEPS",v.num_steps)
@@ -84,11 +84,11 @@ async def testbench(dut):
     cocotb.start_soon(monitor_input(dut, dut.DataInL1, "LOCAL"))
 
     # Back Acknowledgement
-    cocotb.start_soon(back_ack(dut, dut.AckOutE, dut.ReqOutE))
-    cocotb.start_soon(back_ack(dut, dut.AckOutN, dut.ReqOutN))
-    cocotb.start_soon(back_ack(dut, dut.AckOutW, dut.ReqOutW))
-    cocotb.start_soon(back_ack(dut, dut.AckOutS, dut.ReqOutS))
-    cocotb.start_soon(back_ack(dut, dut.AckOutL1, dut.ReqOutL1))
+    cocotb.start_soon(back_ack(dut, dut.AckOutE, dut.ReqOutE, dut.DataOutE))
+    cocotb.start_soon(back_ack(dut, dut.AckOutN, dut.ReqOutN, dut.DataOutN))
+    cocotb.start_soon(back_ack(dut, dut.AckOutW, dut.ReqOutW, dut.DataOutW))
+    cocotb.start_soon(back_ack(dut, dut.AckOutS, dut.ReqOutS, dut.DataOutS))
+    cocotb.start_soon(back_ack(dut, dut.AckOutL1, dut.ReqOutL1, dut.DataOutL1))
 
     # provide packets
     cocotb.start_soon(stimulus(dut, dut.DataInE, dut.ReqInE, dut.AckInE, s.EAST))
@@ -116,6 +116,7 @@ async def testbench(dut):
     avg_end_to_end = 0
     avg_noc = 0
     counter = 0
+    print("TEMP DELAYS",temp_delays)
     for spl in range(len(random_sample_indices)):
         #for ts in fixed_ts_indices:
         for ts in range(len(fixed_ts_indices)):
@@ -133,7 +134,7 @@ async def testbench(dut):
     print("\n#########################")
     print("AVERAGE DELAY ETE", avg_end_to_end)
     print("AVERAGE DELAY NOC", avg_noc)
-    print("FINAL ACCURACY", final_accuracy)
+    print("FINAL ACCURACY", max_accuracy)
     print("#########################\n")
 
 async def stimulus(dut, data,  input_req, ack, direction):
@@ -143,23 +144,11 @@ async def stimulus(dut, data,  input_req, ack, direction):
     global packets
     global start_time
     global ts_index
-    global sample_index
     global random_sample_indices
     global sample
+    global delays
     
     while True:
-        # if ts_index >= len(fixed_ts_indices):
-        #     print("NEXT SAMPLE")
-        #     # print("BREAK")
-        #     # print(len(fixed_ts_indices))
-        #     #break
-        #     ts_index = 0
-            
-        #     if sample == len(random_sample_indices) - 1 :
-        #         print("SAMPLE", sample)
-        #         #break
-        #     sample += 1
-        #     #sample = sample_index
 
         num_elements = len(packets[sample][direction][timestep])
 
@@ -173,14 +162,26 @@ async def stimulus(dut, data,  input_req, ack, direction):
 
                 num_sent_messages += 1
                 await Timer(150, units='ps') # STABILITY
-                input = int(packets[sample][direction][timestep][counter], base=2)
+                input = int(packets[sample][direction][timestep][counter][:-5] + '01000', base=2)
+                
                 data.value = input
+                
                 await Timer(150, units='ps') # STABILITY
+                
                 input_req.value = not input_req.value
-                await Timer(10, units='ps') # STABILITY
+                await Edge(input_req) # STABILITY
+                message = str(data.value)[:20]
+                #print("MESSAGE STIMULUS", message)
+                print("HERE BEFORE", message, cocotb.utils.get_sim_time('ps'))
+                if message in delays[sample][timestep]:
+                    #print("ENTER")
+                    #print("IN DELAY")
+                    delays[sample][timestep][message] = cocotb.utils.get_sim_time('ps')
                 counter += 1
             else:
+                
                 await Edge(ack)
+                print("HERE AFTER", cocotb.utils.get_sim_time('ps'))
         await global_variable_event.wait()
 
 async def monitor_output(dut,dout, name):
@@ -194,37 +195,44 @@ async def monitor_output(dut,dout, name):
 
     while True:
         await Edge(dout)
+        #await Timer(150, units='ps')
         num_recieved_messages += 1
         message = str(dout.value)[:20]
+        #print("OUT",message, cocotb.utils.get_sim_time('ps'))
         if message in expanded_packets[sample][timestep]:
             expanded_packets[sample][timestep][message] -= 1
 
-            if expanded_packets[sample][timestep][message] == 0:
-                del expanded_packets[sample][timestep][message]
-                if message in delays[sample][timestep]:
-                    inj_time = float(delays[sample][timestep][message])
-                    current_time = float(cocotb.utils.get_sim_time('ps'))
-                    #print("putting in delay", sample, timestep, message)
-                    delays[sample][timestep][message] = (current_time - start_time, current_time - inj_time)
+            inj_time = float(delays[sample][timestep][message])
+            current_time = float(cocotb.utils.get_sim_time('ps'))
+            temp_delays.append(current_time - inj_time)
 
-                    if len(expanded_packets[sample][timestep]) == 0:
-                        #if ts_index >= len(fixed_ts_indices) - 1:
-                        if timestep >= len(fixed_ts_indices) - 1:
-                            #ts_index = 0
-                            timestep = 0
+            # if expanded_packets[sample][timestep][message] == 0:
+            #     del expanded_packets[sample][timestep][message]
+            #     if message in delays[sample][timestep]:
+                    
+            #         inj_time = float(delays[sample][timestep][message])
+            #         current_time = float(cocotb.utils.get_sim_time('ps'))
+            #         #print("putting in delay", sample, timestep, message)
+            #         delays[sample][timestep][message] = (current_time - start_time, current_time - inj_time)
+                    
+            #         if len(expanded_packets[sample][timestep]) == 0:
+            #             #if ts_index >= len(fixed_ts_indices) - 1:
+            #             if timestep >= len(fixed_ts_indices) - 1:
+            #                 #ts_index = 0
+            #                 timestep = 0
                             
-                            if sample == len(random_sample_indices) - 1 :
-                                break
-                            sample += 1
-                            #sample = sample_index
-                        else:
-                            #ts_index += 1
-                            timestep += 1
+            #                 if sample == len(random_sample_indices) - 1 :
+            #                     break
+            #                 sample += 1
+            #                 #sample = sample_index
+            #             else:
+            #                 #ts_index += 1
+            #                 timestep += 1
 
-                        #timestep = fixed_ts_indices[ts_index]
-                        start_time = None
-                        global_variable_event.set()  # Unblock the stimulus loop
-                        global_variable_event.clear()  # Reset the event for future use
+            #             #timestep = fixed_ts_indices[ts_index]
+            #             start_time = None
+            #             global_variable_event.set()  # Unblock the stimulus loop
+            #             global_variable_event.clear()  # Reset the event for future use
                     
         else:
             dut._log.info("OUT PACKET NOT FOUND")
@@ -235,16 +243,20 @@ async def monitor_input(dut, din, name):
     global delays
     while True:
         await Edge(din)
-        message = str(din.value)[:20]
-        if message in delays[sample][timestep]:
-            #print("IN DELAY")
-            delays[sample][timestep][message] = cocotb.utils.get_sim_time('ps')
+        
+        # message = str(din.value)[:20]
+        # if message in delays[sample][timestep]:
+        #     print("HERE")
+        #     #print("IN DELAY")
+        #     delays[sample][timestep][message] = cocotb.utils.get_sim_time('ps')
 
-async def back_ack(dut,ack, req):
+async def back_ack(dut,ack, req, dout=None):
     
     while True:
         await Edge(req)
-        await Timer(10, units='ps') # STABILITY
+        message = str(dout.value)[:20]
+        print("OUT",message, cocotb.utils.get_sim_time('ps'))
+        await Timer(150, units='ps') # STABILITY
         ack.value = req.value
 
 async def init(dut):
