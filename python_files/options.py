@@ -12,7 +12,7 @@ class Variables(object):
         self.bs = 10
         self.num_cores = 5
         self.target_sparcity = 1.0
-        self.wandb_key = "edfb94e4b9dca47c397a343d2829e9af262d9e32"
+        self.wandb_key = "paste-key-here"
 
         self.train = False
 
