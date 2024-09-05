@@ -30,7 +30,7 @@ def tb_runner():
           # Pass the simulator arguments here,
     )
 
-    runner.test(hdl_toplevel="tb_mt_stage", test_module="testbench_digital,", waves=True, test_args=["-suppress", "vsim-3839", "-suppress", "vsim-12003"])
+    runner.test(hdl_toplevel="tb_mt_stage", test_module="testbench_accelerated,", waves=True, test_args=["-suppress", "vsim-3839", "-suppress", "vsim-12003"])
 
 
 if __name__ == "__main__":

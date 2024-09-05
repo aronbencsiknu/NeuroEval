@@ -23,15 +23,6 @@ print("!!IMPORTANT!! You need to create a WandB account and paste your authoriza
 print("\n#########################################")
 print("#########################################\n")
 
-#torch.manual_seed(42)
-
-# key=v.wandb_key
-# wandb.login(key=key)
-# wandb.init(project="NeuroEval_02", 
-#             entity="aronbencsik", 
-#             group="test",
-#             settings=wandb.Settings(start_method="thread"))
-
 sweep_handler = SweepHandler()
 key=v.wandb_key
 wandb.login(key=key)
@@ -44,7 +35,6 @@ sweep_id = wandb.sweep(config, project="NeuroEval_09")
 # Parameters
 n_in = v.num_inputs
 t_cue_spacing = v.t_cue_spacing
-#silence_duration = v.silence_duration
 recall_duration = v.recall_duration
 seq_len = v.num_steps
 v.num_steps = seq_len
@@ -78,10 +68,8 @@ def sweep(config=None):
                          learn_beta=config.learn_beta,
                          learn_treshold=config.learn_threshold)
 
-        #net = SpikingNet(v)
         sample_data = torch.randn(v.num_steps, v.num_inputs)
-        net = utils.init_network(net, sample_data)
-        
+        net = utils.init_network(net, sample_data)   
 
         # Create dataloader
         train_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
@@ -103,12 +91,6 @@ def sweep(config=None):
         
         _, _ = trainer.train(v.device)
 
-        #wandb.log({"Train loss": 0.1})
-
 wandb.agent(sweep_id, sweep)
 wandb.finish()
-# # Using the special variable 
-# # __name__
-# if __name__=="__main__":
-#     main()
 

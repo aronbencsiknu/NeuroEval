@@ -443,7 +443,6 @@ module check_packet_transit(
             tb_mt_stage.veggies[message_first_half][core_id][message_second_half] += 1;
         end
         if ($size(tb_mt_stage.expandedPacketsList) <= 0) begin
-            //$display("DELIVERED EVERYTHING BITCH %d %d", tb_mt_stage.counter_reset, $size(tb_mt_stage.expandedPacketsList));
                 tb_mt_stage.everything_delivered++;
                 
         end

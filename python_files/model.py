@@ -19,18 +19,13 @@ class SpikingNet(torch.nn.Module):
         self.fc2.__setattr__("bias",None) # biological plausability
         self.lif2 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
 
-        # #Set all the weights to 1
-        #nn.init.constant_(self.fc1.weight, 1.0)
-        #nn.init.constant_(self.fc2.weight, 1.0)
-
         self.num_steps = opt.num_steps
 
     def init_neurons():
         pass
 
     def forward_one_ts(self, x, spk1, syn1, mem1, mem2, cur_sub=None, cur_add=None, time_first=True):
-        #spk1, syn1, mem1 = self.lif1.init_rsynaptic()
-        #mem2 = self.lif2.init_leaky()
+
         if not time_first:
             #test = data
             x=x.transpose(1, 0)
@@ -41,7 +36,6 @@ class SpikingNet(torch.nn.Module):
         curr_add_fc = []
         if cur_sub is not None:
             for element in cur_sub:
-                #print("ELEMENT", element)
                 if element[2] > 99:
                     curr_sub_fc.append(element)
                     pass

@@ -33,7 +33,6 @@ class Mapping:
     
     def map_neurons(self):
         self.core_allocation, self.NIR_to_cores, self.neuron_to_core = self._allocate_neurons_to_cores()
-        #self.buffer_map = self.map_buffers(self.indices_to_lock)
 
     def set_core_capacity(self, cc):
         self.core_capacity = cc
@@ -49,22 +48,8 @@ class Mapping:
             else:
                 print(temp)
 
-        # for layer_name, allocations in self.core_allocation.items():
-        #     temp = f"Layer: {layer_name}"
-        #     if dut is not None:
-        #             dut._log.info(temp)
-        #     else:
-        #         print(temp)
-        #     for core_id, start_idx, end_idx in allocations:
-        #         temp = f"  Core {core_id}: start index = {start_idx}, end index = {end_idx}"
-        #         if dut is not None:
-        #             dut._log.info(temp)
-        #         else:
-        #             print(temp)
-
         print("CORE ALLOCATION:",self.core_allocation)
         print("NIR TO CORES:",self.NIR_to_cores)
-        #print("NEURON TO CORE:",self.neuron_to_core)
         print("BUFFER MAP:",self.buffer_map)
 
         print("CORE CAPACITY", self.core_capacity)

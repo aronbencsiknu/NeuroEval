@@ -72,9 +72,9 @@ def snn_init(dut=None):
 
     # Create dataset and dataloader
     train_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=100)
-    val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=500)
+    val_set = BinaryNavigationDataset(seq_len, n_in, recall_duration, p_group, input_f0, n_cues, t_cue, t_cue_spacing, n_input_symbols, length=20)
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_set, batch_size=batch_size, shuffle=True, num_workers=0)
+    val_loader = DataLoader(val_set, batch_size=1, shuffle=True, num_workers=0)
     # -------------------------------------------------
 
     trainer = Trainer(net,
@@ -87,9 +87,13 @@ def snn_init(dut=None):
                       learning_rate=v.lr, 
                       target_frequency=v.target_fr, 
                       num_steps=v.num_steps)
-    
-    net, mapping, max_accuracy, final_accuracy = trainer.train(v.device, mapping, dut)
-
+    if v.train:
+        net, mapping, max_accuracy, final_accuracy, metrics = trainer.train(v.device, mapping, dut)
+    else:
+        net.load_state_dict(torch.load("model.pth"))
+        max_accuracy = None
+        final_accuracy, _ = trainer.eval(v.device,0,external_model=net, final=True)
+        metrics = trainer.mtrcs
     # -------------------------------------------------
 
     routing_matrices = {}
@@ -147,7 +151,7 @@ def snn_init(dut=None):
 
         routing_matrices[layer_name] = routing_matrix
 
-    return net, routing_matrices, routing_map, mapping, train_set, val_set, max_accuracy, final_accuracy
+    return net, routing_matrices, routing_map, mapping, train_set, val_set, max_accuracy, final_accuracy, metrics
     
 def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, idx=0):
     net = copy.deepcopy(network)

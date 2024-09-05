@@ -14,6 +14,8 @@ class Variables(object):
         self.target_sparcity = 1.0
         self.wandb_key = "edfb94e4b9dca47c397a343d2829e9af262d9e32"
 
+        self.train = False
+
         self.recall_duration = 20
         self.t_cue_spacing = 15
         self.silence_duration = 30

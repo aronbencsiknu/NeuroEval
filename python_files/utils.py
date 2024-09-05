@@ -5,17 +5,17 @@ import random
 spike_record = {}
 counter = 0
 
-def _reset_spike_record_and_hooks():
-        global spike_record, hooks
+# def _reset_spike_record_and_hooks():
+#         global spike_record, hooks
 
-        # Clear the spike_record dictionary
-        spike_record = {}
+#         # Clear the spike_record dictionary
+#         spike_record = {}
 
-        # Remove existing hooks if they are already registered
-        if 'hooks' in globals():
-            for hook in hooks:
-                hook.remove()
-                hooks = []
+#         # Remove existing hooks if they are already registered
+#         if 'hooks' in globals():
+#             for hook in hooks:
+#                 hook.remove()
+#                 hooks = []
 
 # Function to create a hook that records spikes
 def _create_spike_hook(layer_name):
@@ -135,19 +135,19 @@ def repeat_and_convert_packets(packets, packets_dict, address_length, neuron_idx
 
     return dictionary, expanded_packets_dict
 
-def _expand_address_list(in_a, in_m, addr_width=5):
-    out_list = []
+# def _expand_address_list(in_a, in_m, addr_width=5):
+#     out_list = []
 
-    # Iterate over each bit in the address width
-    for i in range(addr_width):
-        if in_a[i] == "1":
-            bit_value = 1 << (addr_width - 1)
-            temp = bit_value >> i
-            formatted_value = f"{temp:0{addr_width}b}"
-            # Shift 1 to the position of each set bit, concatenate with message
-            out_list.append(in_m + formatted_value)
+#     # Iterate over each bit in the address width
+#     for i in range(addr_width):
+#         if in_a[i] == "1":
+#             bit_value = 1 << (addr_width - 1)
+#             temp = bit_value >> i
+#             formatted_value = f"{temp:0{addr_width}b}"
+#             # Shift 1 to the position of each set bit, concatenate with message
+#             out_list.append(in_m + formatted_value)
 
-    return out_list
+#     return out_list
 
 def _count_address_list(in_a, in_m, addr_width=5):
     #out_list = []
@@ -160,8 +160,7 @@ def _count_address_list(in_a, in_m, addr_width=5):
     return counter
 
 def generate_message_neuron_idx(s_idx, d_idx, message_width=20):
-    #print("START_INDEX", s_idx)
-    #print("DEST INDEX",format(s_idx, f'0{int(message_width/2)}b') +":"+ format(d_idx, f'0{int(message_width/2)}b'))
+    
     return format(s_idx, f'0{int(message_width/2)}b') + format(d_idx, f'0{int(message_width/2)}b')
 
 def generate_message(message_width=20):
@@ -200,14 +199,12 @@ def count_target_neurons(layer_name, source_core, idx, target_cores, buffer_map)
             if connection in buffer_map:
                 how_many_to_subtract_sr += int(buffer_map[connection])
             
-            #num_sr_dest.append((target_core, reps))
             num_sr_dest_neurons += reps
 
         else:
             if connection in buffer_map:
                 how_many_to_subtract_lr += int(buffer_map[connection])
             
-            #num_lr_dest.append((target_core, reps))
             num_lr_dest_neurons += reps
 
     return num_lr_dest_neurons, num_sr_dest_neurons, how_many_to_subtract_lr, how_many_to_subtract_sr

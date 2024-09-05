@@ -40,17 +40,15 @@ async def testbench(dut):
     global random_sample_indices
     global sample
     
-    net, routing_matrices, routing_map, mapping, _, val_set, final_accuracy, _ = gp.snn_init(dut=None)
+    net, routing_matrices, routing_map, mapping, _, val_set, final_accuracy, _, _, _, _ = gp.snn_init(dut=None)
 
     random_sample_indices = random.sample(range(len(val_set)), num_samples)
     fixed_ts_indices = np.linspace(30, v.num_steps-1, num_timesteps).round().astype(int)
     print("NUM STEPS",v.num_steps)
-    #print("LEN PAC", len(pac))
-    n=5
+    
+    n=14
     for idx in random_sample_indices:
         pac, exp = gp.delay_experiment(net, routing_matrices, routing_map, mapping, val_set, idx)
-        print(pac.keys())
-        #pac = {key: [value[i] for i in fixed_ts_indices] for key, value in pac.items()}
         new_pac = {}
         for key, value in pac.items():
             new_pac[key] = []
@@ -73,14 +71,8 @@ async def testbench(dut):
                     for _ in range(n):  # Repeat n times
                         temp_reps += value
                     temp[key] = temp_reps
-            # for _ in range(n):  # Repeat n times
-            #     temp.extend(exp[i])
             new_exp.append(temp)
-            #print(exp[i])
-            #new_exp.append(exp[i])
         exp = new_exp
-
-        #exp = [exp[i] for i in fixed_ts_indices]
         
         packets.append(pac)
         expanded_packets.append(exp)
@@ -89,15 +81,10 @@ async def testbench(dut):
         print("sample", idx)
         temp = []
         for ts in expanded_packets[idx]:
-            #delays.append(dict.fromkeys(ts.keys()))
             temp.append(dict.fromkeys(ts.keys()))
         delays.append(temp)
 
     await init(dut)
-
-    # skip all timesteps with 0 packets
-    # while len(expanded_packets[timestep]) == 0:
-    #         timestep += 1
 
     # Monitor output ports
     cocotb.start_soon(monitor_output(dut, dut.DataOutE, "EAST"))
@@ -105,13 +92,6 @@ async def testbench(dut):
     cocotb.start_soon(monitor_output(dut, dut.DataOutW, "WEST"))
     cocotb.start_soon(monitor_output(dut, dut.DataOutS, "SOUTH"))
     cocotb.start_soon(monitor_output(dut, dut.DataOutL1, "LOCAL"))
-
-    # Monitor input ports
-    # cocotb.start_soon(monitor_input(dut, dut.DataInE, "EAST"))
-    # cocotb.start_soon(monitor_input(dut, dut.DataInN, "NORTH"))
-    # cocotb.start_soon(monitor_input(dut, dut.DataInW, "WEST"))
-    # cocotb.start_soon(monitor_input(dut, dut.DataInS, "SOUTH"))
-    # cocotb.start_soon(monitor_input(dut, dut.DataInL1, "LOCAL"))
 
     # Back Acknowledgement
     cocotb.start_soon(back_ack(dut, dut.AckOutE, dut.ReqOutE))
@@ -126,9 +106,6 @@ async def testbench(dut):
     cocotb.start_soon(stimulus(dut, dut.DataInW, dut.ReqInW, dut.AckInW, s.WEST))
     cocotb.start_soon(stimulus(dut, dut.DataInS, dut.ReqInS, dut.AckInS, s.SOUTH))
     cocotb.start_soon(stimulus(dut, dut.DataInL1, dut.ReqInL1, dut.AckInL1, s.L1))
-
-
-    #cocotb.start_soon(check_packet_transit(dut, timestep))
             
     await Timer(90000000, units='ns') # Expected sim end
 
@@ -179,18 +156,6 @@ async def stimulus(dut, data,  input_req, ack, direction):
     global sample
     
     while True:
-        # if ts_index >= len(fixed_ts_indices):
-        #     print("NEXT SAMPLE")
-        #     # print("BREAK")
-        #     # print(len(fixed_ts_indices))
-        #     #break
-        #     ts_index = 0
-            
-        #     if sample == len(random_sample_indices) - 1 :
-        #         print("SAMPLE", sample)
-        #         #break
-        #     sample += 1
-        #     #sample = sample_index
 
         num_elements = len(packets[sample][direction][timestep])
 
@@ -281,7 +246,7 @@ async def back_ack(dut,ack, req):
 
 async def init(dut):
 
-    await Timer(5000, units='ps')
+    await Timer(500, units='ps')
 
     dut.rst.value = 0
 
@@ -291,7 +256,7 @@ async def init(dut):
     dut.AckOutS.value = 0
     dut.AckOutL1.value = 0
 
-    await Timer(5000, units='ps')
+    await Timer(500, units='ps')
 
     dut.rst.value = 1
     
@@ -313,4 +278,4 @@ async def init(dut):
     dut.N_MASK.value = s.N_MASK
     dut.S_MASK.value = s.S_MASK
 
-    await Timer(5000, units='ps')
+    await Timer(500, units='ps')
