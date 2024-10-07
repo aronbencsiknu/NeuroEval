@@ -15,9 +15,12 @@ class SpikingNet(torch.nn.Module):
         self.lif1 = RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
         self.lif1.recurrent.__setattr__("bias",None) # biological plausability
 
+        self.lif2 = RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
+        self.lif2.recurrent.__setattr__("bias",None) # biological plausability
+
         self.fc2 = nn.Linear(opt.num_hidden1, opt.num_outputs)
         self.fc2.__setattr__("bias",None) # biological plausability
-        self.lif2 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
+        self.lif3 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
 
         self.num_steps = opt.num_steps
 
@@ -104,13 +107,14 @@ class SpikingNet(torch.nn.Module):
     def forward(self, x, time_first=True):
 
         spk1, syn1, mem1 = self.lif1.init_rsynaptic()
-        mem2 = self.lif2.init_leaky()
+        spk2, syn2, mem2 = self.lif2.init_rsynaptic()
+        mem3 = self.lif3.init_leaky()
 
         # Record the spikes from the hidden layer (if needed)
         spk1_rec = [] # not necessarily needed for inference
         # Record the final layer
-        spk2_rec = []
-        mem2_rec = []
+        spk3_rec = []
+        mem3_rec = []
 
         if not time_first:
             #test = data
@@ -124,12 +128,13 @@ class SpikingNet(torch.nn.Module):
 
             ### Recurrent layer
             spk1, syn1, mem1 = self.lif1(cur1, spk1, syn1, mem1)
+            spk2, syn2, mem2 = self.lif2(cur2, spk2, syn2, mem2)
 
             ### Output layer
-            cur2 = self.fc2(spk1)
-            spk2, mem2 = self.lif2(cur2, mem2)
+            cur2 = self.fc2(spk2)
+            spk3, mem3 = self.lif3(cur2, mem3)
 
-            spk2_rec.append(spk2)
-            mem2_rec.append(mem2)
+            spk3_rec.append(spk3)
+            mem3_rec.append(mem3)
 
-        return torch.stack(spk2_rec, dim=0), torch.stack(mem2_rec, dim=0)
+        return torch.stack(spk3_rec, dim=0), torch.stack(mem3_rec, dim=0)

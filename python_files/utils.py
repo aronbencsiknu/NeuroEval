@@ -92,14 +92,16 @@ def repeat_and_convert_packets(packets, packets_dict, address_length, neuron_idx
     #expanded_packets_list = []
     expanded_packets_dict = {}
 
+    
     dictionary = {
+        # fit 16 in here
         0: [],
         1: [],
         2: [],
         3: [],
         4: []
     }
-    for source_neuron_index, dest_neuron_start_index, source_core, destination_cores, reps in packets:
+    for source_neuron_index, dest_neuron_start_index, source_core, destination_cores in packets:
         address = ""
     
         # Append '0' to the address until it reaches the desired address length

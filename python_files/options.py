@@ -10,7 +10,7 @@ class Variables(object):
         self.lr = 0.0001
         self.target_fr = 1.0
         self.bs = 10
-        self.num_cores = 5
+        self.num_cores = 16 # requirement of zurich
         self.target_sparcity = 1.0
         self.wandb_key = "paste-key-here"
 

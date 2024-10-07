@@ -101,6 +101,9 @@ def snn_init(dut=None):
 
     source_neuron_index = 0 # index counting over all the neurons, used in verilog of id
 
+    # construct dict layer_name: layer_size
+    mem_potential_dict = {layer_name: size for layer_name, size in mapping.mem_potential_sizes.items()}
+
     # counstricting routing matrices
     for layer_name, size in mapping.mem_potential_sizes.items(): # a way to get the layer names
         
@@ -114,38 +117,60 @@ def snn_init(dut=None):
             source_core = mapping.neuron_to_core[routing_id]
 
             downstream_nodes = list(gp.graph.successors(layer_name))
+            upstream_nodes = list(gp.graph.predecessors(layer_name))
 
             target_cores = []
+            upstream_cores = []
             for downstream_node in downstream_nodes:
                 if downstream_node != "output":
-                    target_cores.extend(mapping.NIR_to_cores[downstream_node])
+                    temp = set()  # Use a set to ensure uniqueness
+                    for downstream_neuron_idx in range(mem_potential_dict[downstream_node]):
+                        temp.add(mapping.neuron_to_core[downstream_node + downstream_neuron_idx])  # Use .add() for sets
+
+                    # Optionally, convert back to a list if needed
+                    temp = list(temp)
+
+                    # here, you should loop through all the neurons and get the unique cores (iter: downstream_node><layer_size++)
+                    target_cores.extend(temp)
+
+            for upstream_node in upstream_nodes:
+                if upstream_node != "input":
+                    upstream_cores.extend(mapping.NIR_to_cores[upstream_node])
+
 
             # Remove skipped packets
-            target_cores = utils.remove_unnecessary_packets(layer_name, source_core, idx, target_cores, mapping.buffer_map)
+            #target_cores = utils.remove_unnecessary_packets(layer_name, source_core, idx, target_cores, mapping.buffer_map)
 
             # bundle packets (bundle several unicast packets into multicast)
             bundled_core_to_cores = []
             dest_neuron_start_index = 0
-            while len(target_cores) > 0:
-                _, minimum = target_cores[0] # just getting the first repetition value
-                for _, reps in target_cores: # find the minimum repetition value
-                    if reps < minimum:
-                        minimum = reps
+            # while len(target_cores) > 0:
+            #     _, minimum = target_cores[0] # just getting the first repetition value
+            #     for _, reps in target_cores: # find the minimum repetition value
+            #         if reps < minimum:
+            #             minimum = reps
 
-                bcc, target_cores = utils.bundle_target_cores(target_cores, minimum)
-                bundled_core_to_cores.append((bcc, minimum))
+            #     bcc, target_cores = utils.bundle_target_cores(target_cores, minimum)
+            #     bundled_core_to_cores.append((bcc, minimum))
 
-            packet_information = []
+            # packet_information = []
 
-            for bcc, reps in bundled_core_to_cores:
-                packet_information.append((source_neuron_index, dest_neuron_start_index, source_core, bcc, reps))
-                h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
-                routing_map[h] = packet_information
+            # for bcc, reps in bundled_core_to_cores:
+            #     packet_information.append((source_neuron_index, dest_neuron_start_index, source_core, bcc, reps))
+            #     h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
+            #     routing_map[h] = packet_information
 
-                routing_matrix[idx] = h
-                if reps < 0:
-                    print("REP -", reps)
-                dest_neuron_start_index += reps
+            #     routing_matrix[idx] = h
+            #     if reps < 0:
+            #         print("REP -", reps)
+            #     dest_neuron_start_index += reps
+
+            h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
+            target_cores = [] 
+            for core, _ in target_cores:
+                target_cores.append(core)
+
+            routing_map[h] = (source_neuron_index, source_core, target_cores)
 
             source_neuron_index += 1
 
@@ -188,7 +213,6 @@ def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, i
             hooks.append(module.register_forward_hook(create_spike_hook(name)))
 
     
-
     # if not full_inference: 
     #     return net, routing_matrices, routing_map, dataset, mapping
     # -------------------------------------------------
@@ -232,28 +256,26 @@ def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, i
 
         packets.append(packets_in_ts)
 
-    #final_packets_list = []
-    final_packets_dict = {
-        s.EAST: [],
-        s.NORTH: [],
-        s.WEST: [],
-        s.SOUTH: [],
-        s.L1: []
-    }
-    expanded_packets_list = []
+    final_packets_dict = {i: [] for i in range(16)}
 
-    for packet in packets:
+    for source_neuron_index, dest_neuron_start_index, source_core, destination_cores in packets:
+        final_packets_dict[source_core] = ()
+        
+
+    #expanded_packets_list = []
+
+    #for packet in packets:
         # every iteration is one timestep
 
-        temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict, s.ADDR_W, neuron_idx=False)
+        # temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict, s.ADDR_W, neuron_idx=False)
         
-        expanded_packets_list.append(expanded_packets)
+        # expanded_packets_list.append(expanded_packets)
 
-        for key in final_packets_dict:
-            if key in temp:
-                final_packets_dict[key].append(temp[key])
+        # for key in final_packets_dict:
+        #     if key in temp:
+        #         final_packets_dict[key].append(temp[key])
 
-    return final_packets_dict, expanded_packets_list
+    return final_packets_dict
 
 
 class DynamicInference:
