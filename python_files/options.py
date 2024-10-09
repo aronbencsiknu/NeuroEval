@@ -2,11 +2,11 @@ import torch
 
 class Variables(object):
     def __init__(self):
-        self.num_inputs = 20
+        self.num_inputs = 40
         self.num_hidden1 = 100
         self.num_outputs = 2
         self.core_capacity = 25 # calculated automatically during mapping
-        self.num_epochs = 100
+        self.num_epochs = 10
         self.lr = 0.0001
         self.target_fr = 1.0
         self.bs = 10

@@ -6,7 +6,7 @@ from .dataset import BinaryNavigationDataset
 from . import utils
 from .options import Variables
 from .options import Specs
-import itertools
+from collections import defaultdict
 import copy
 
 import torch
@@ -98,13 +98,13 @@ def snn_init(dut=None):
 
     routing_matrices = {}
     routing_map = {}
-
-    source_neuron_index = 0 # index counting over all the neurons, used in verilog of id
+    upstream_connectivity = {}
+    upstream_cores= defaultdict(list)
 
     # construct dict layer_name: layer_size
     mem_potential_dict = {layer_name: size for layer_name, size in mapping.mem_potential_sizes.items()}
 
-    # counstricting routing matrices
+    # counstructing routing matrices
     for layer_name, size in mapping.mem_potential_sizes.items(): # a way to get the layer names
         
         routing_matrix = torch.zeros((size))
@@ -119,64 +119,39 @@ def snn_init(dut=None):
             downstream_nodes = list(gp.graph.successors(layer_name))
             upstream_nodes = list(gp.graph.predecessors(layer_name))
 
-            target_cores = []
-            upstream_cores = []
+            target_cores = set()
+            
             for downstream_node in downstream_nodes:
                 if downstream_node != "output":
-                    temp = set()  # Use a set to ensure uniqueness
+                    #temp = set()  # Use a set to ensure uniqueness
                     for downstream_neuron_idx in range(mem_potential_dict[downstream_node]):
-                        temp.add(mapping.neuron_to_core[downstream_node + downstream_neuron_idx])  # Use .add() for sets
+                        target_core = mapping.neuron_to_core[downstream_node + "-" + str(downstream_neuron_idx)]
+                        # if source_core != target_core:
+                        target_cores.add(target_core)
 
-                    # Optionally, convert back to a list if needed
-                    temp = list(temp)
-
-                    # here, you should loop through all the neurons and get the unique cores (iter: downstream_node><layer_size++)
-                    target_cores.extend(temp)
-
+            target_cores = list(target_cores)
+            upstream_cores[source_core] = []
             for upstream_node in upstream_nodes:
                 if upstream_node != "input":
-                    upstream_cores.extend(mapping.NIR_to_cores[upstream_node])
+                    
+                    for upstream_neuron_idx in range(mem_potential_dict[upstream_node]):
+                        upstream_core = mapping.neuron_to_core[upstream_node + "-" + str(upstream_neuron_idx)]
+                        # if source_core != upstream_core:
+                        upstream_cores[source_core].append(upstream_node + "-" + str(upstream_neuron_idx))
 
-
-            # Remove skipped packets
-            #target_cores = utils.remove_unnecessary_packets(layer_name, source_core, idx, target_cores, mapping.buffer_map)
-
-            # bundle packets (bundle several unicast packets into multicast)
-            bundled_core_to_cores = []
-            dest_neuron_start_index = 0
-            # while len(target_cores) > 0:
-            #     _, minimum = target_cores[0] # just getting the first repetition value
-            #     for _, reps in target_cores: # find the minimum repetition value
-            #         if reps < minimum:
-            #             minimum = reps
-
-            #     bcc, target_cores = utils.bundle_target_cores(target_cores, minimum)
-            #     bundled_core_to_cores.append((bcc, minimum))
-
-            # packet_information = []
-
-            # for bcc, reps in bundled_core_to_cores:
-            #     packet_information.append((source_neuron_index, dest_neuron_start_index, source_core, bcc, reps))
-            #     h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
-            #     routing_map[h] = packet_information
-
-            #     routing_matrix[idx] = h
-            #     if reps < 0:
-            #         print("REP -", reps)
-            #     dest_neuron_start_index += reps
 
             h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
-            target_cores = [] 
-            for core, _ in target_cores:
-                target_cores.append(core)
-
-            routing_map[h] = (source_neuron_index, source_core, target_cores)
-
-            source_neuron_index += 1
+            #target_cores = [] 
+            # for core, _ in target_cores:
+            #     target_cores.append(core)
+            #upstream_connectivity = upstream_cores
+            routing_map[h] = (layer_name + "-" + str(idx), source_core, target_cores, upstream_cores)
+            routing_matrix[idx] = h
+            #print(layer_name, routing_map[h])
 
         routing_matrices[layer_name] = routing_matrix
 
-    return net, routing_matrices, routing_map, mapping, train_set, val_set, max_accuracy, final_accuracy, metrics
+    return net, routing_matrices, routing_map, mapping, train_set, val_set, max_accuracy, final_accuracy, metrics, upstream_cores
     
 def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, idx=0):
     net = copy.deepcopy(network)
@@ -246,7 +221,7 @@ def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, i
     for t in range(v.num_steps):
         packets_in_ts = []
         for layer_name, _ in mapping.mem_potential_sizes.items():
-
+            #print("HELLo",routing_matrices[layer_name])
             p = utils.dot_product(routing_matrices[layer_name], 
                                         spike_record[layer_name][t], 
                                         routing_map,
@@ -256,24 +231,15 @@ def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, i
 
         packets.append(packets_in_ts)
 
-    final_packets_dict = {i: [] for i in range(16)}
+    final_packets_dict = {i: [] for i in range(v.num_cores)}
 
-    for source_neuron_index, dest_neuron_start_index, source_core, destination_cores in packets:
-        final_packets_dict[source_core] = ()
-        
-
-    #expanded_packets_list = []
-
-    #for packet in packets:
-        # every iteration is one timestep
-
-        # temp, expanded_packets = utils.repeat_and_convert_packets(packet, final_packets_dict, s.ADDR_W, neuron_idx=False)
-        
-        # expanded_packets_list.append(expanded_packets)
-
-        # for key in final_packets_dict:
-        #     if key in temp:
-        #         final_packets_dict[key].append(temp[key])
+    for ts_idx, timestep in enumerate(packets):
+        temp = {i: [] for i in range(v.num_cores)}
+        for idx, source_core, target_cores, _ in timestep:
+            temp[source_core].append((idx, source_core, target_cores))
+        for key in final_packets_dict:
+            if key in temp:
+                final_packets_dict[key].append(temp[key])
 
     return final_packets_dict
 

@@ -59,72 +59,45 @@ class Mapping:
         # print("CORE CAPACITY", self.core_capacity)
     
     def _allocate_neurons_to_cores(self):
-        core_allocation = {}
-        NIR_to_cores = {}
+        print("MAPPING")
         neuron_to_core = {}
 
+        core_av = {i: [0, False] for i in range(v.num_cores-1)}
+        # Return a random choice from these keys
         core_id = 0
-        core_start_index = 0
-        current_core_neurons = 0
-        full_capacity_reached = False
 
         layer_names = list(self.mem_potential_sizes.keys())
         last_layer_name = layer_names[-1]
 
         # iterate through each layer
+        neuron_counter = 0
         for layer_name, num_neurons in self.mem_potential_sizes.items():
-            for neuron_idx in range(num_neurons):
-                core = random.randint(0, v.num_cores-1)
-                neuron_to_core[layer_name + "-" + str(neuron_idx)] = core
 
-            # layer_start_index = core_start_index
+            if layer_name == last_layer_name:
+                if num_neurons > self.core_capacity:
+                    raise Exception("Output layer does not fit in one core!")
 
-            # if layer_name == last_layer_name:
-            #     if num_neurons > self.core_capacity:
-            #         raise Exception("Output layer does not fit in one core!")
+                for neuron_id in range(0, num_neurons):
+                    core_id = v.num_cores-1
+                    neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id
+                    #core_av[core_id] += 1
+                break
+            else:  
+                for neuron_id in range(0, num_neurons):
+                    neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id
+                    neuron_counter+=1
+                    switch = random.random() < 1.0
+                    if core_av[core_id][0] >= self.core_capacity or (switch and not core_av[core_id][1]):
+                        core_av[core_id][1] = True
 
-            #     # Ensure the last layer is in the same core
-            #     if not full_capacity_reached:
-            #         core_id += 1
-            #     core_start_index = 0
-            #     current_core_neurons = 0
-            #     layer_start_index = core_start_index
-            #     layer_end_index = layer_start_index + num_neurons - 1
-            #     core_allocation[layer_name] = [(core_id, layer_start_index, layer_end_index)]
-            #     NIR_to_cores[layer_name] = [(core_id, layer_end_index + 1 - layer_start_index)]
-            #     for neuron_id in range(layer_start_index, layer_end_index + 1):
-            #         neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id
-            #     break
-
-            # while num_neurons > 0:
-            #     full_capacity_reached = False
-            #     available_space = self.core_capacity - current_core_neurons
-            #     neurons_to_allocate = min(num_neurons, available_space)
-
-            #     layer_end_index = layer_start_index + neurons_to_allocate - 1
-
-            #     if layer_name not in core_allocation:
-            #         core_allocation[layer_name] = []
-            #         NIR_to_cores[layer_name] = []
-
-            #     core_allocation[layer_name].append((core_id, layer_start_index, layer_end_index))
-            #     NIR_to_cores[layer_name].append((core_id, layer_end_index + 1 - layer_start_index))
-
-            #     for neuron_id in range(layer_start_index, layer_end_index + 1):
-            #         neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id
-
-            #     current_core_neurons += neurons_to_allocate
-            #     layer_start_index += neurons_to_allocate
-            #     num_neurons -= neurons_to_allocate
-
-            #     if current_core_neurons == self.core_capacity:
-            #         full_capacity_reached = True
-            #         core_id += 1
-            #         core_start_index = 0
-            #         current_core_neurons = 0
-            #     else:
-            #         core_start_index = layer_start_index
-
+                        available_cores = [core_id for core_id, value in core_av.items() if value[0] < self.core_capacity]
+                        core_id = random.choice(available_cores)
+                        core_av[core_id][0] += 1
+                    else:
+                        core_av[core_id][0] += 1
+        print(self.core_capacity)
+        print("COUNTER", neuron_counter)
+        print(core_av)
         return neuron_to_core
     
     def map_buffers(self, indices_to_lock=None):

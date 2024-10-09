@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 class BinaryNavigationDataset(Dataset):
     def __init__(self, seq_len, n_neuron, recall_duration, p_group, f0=0.5,
-                 n_cues=7, t_cue=100, t_interval=150, n_input_symbols=4, length=100):
+                 n_cues=7, t_cue=100, t_interval=150, n_input_symbols=4, length=500):
         
         self.data = []
         self.targets = []
@@ -88,7 +88,7 @@ class BinaryNavigationDataset(Dataset):
 # recall_duration = 20
 # seq_len = int(t_cue_spacing * 7 + silence_duration + recall_duration)
 # batch_size = 10
-# input_f0 = 40. / 100.
+# input_f0 = 40. / 20.
 # p_group = 0.3
 # n_cues = 7
 # t_cue = 10

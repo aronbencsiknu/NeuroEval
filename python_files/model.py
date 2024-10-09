@@ -11,16 +11,34 @@ class SpikingNet(torch.nn.Module):
 
         # Initialize layers
         self.fc1 = nn.Linear(opt.num_inputs, opt.num_hidden1)
-        self.fc1.__setattr__("bias",None) # biological plausability
+        #self.fc1.__setattr__("bias",None) # biological plausability
+
         self.lif1 = RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
-        self.lif1.recurrent.__setattr__("bias",None) # biological plausability
+        #self.lif1.recurrent.__setattr__("bias",None) # biological plausability
+
+        self.fc2 = nn.Linear(opt.num_hidden1, opt.num_hidden1)
+        #self.fc2.__setattr__("bias",None) # biological plausability
 
         self.lif2 = RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
-        self.lif2.recurrent.__setattr__("bias",None) # biological plausability
+        #self.lif2.recurrent.__setattr__("bias",None) # biological plausability
 
-        self.fc2 = nn.Linear(opt.num_hidden1, opt.num_outputs)
-        self.fc2.__setattr__("bias",None) # biological plausability
-        self.lif3 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
+        self.fc3 = nn.Linear(opt.num_hidden1, opt.num_hidden1)
+        #self.fc3.__setattr__("bias",None) # biological plausability
+
+        self.lif3 = RSynaptic(alpha=0.9, beta=0.9, spike_grad=spike_grad, learn_alpha=True, learn_threshold=True, linear_features=opt.num_hidden1, reset_mechanism="subtract", reset_delay=False, all_to_all=True)
+        #self.lif3.recurrent.__setattr__("bias",None) # biological plausability
+
+        self.fc4 = nn.Linear(opt.num_hidden1, opt.num_hidden1)
+        #self.fc4.__setattr__("bias",None) # biological plausability
+        self.lif4 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
+
+        self.fc5 = nn.Linear(opt.num_hidden1, opt.num_hidden1)
+        #self.fc4.__setattr__("bias",None) # biological plausability
+        self.lif5 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
+
+        self.fc6 = nn.Linear(opt.num_hidden1, opt.num_outputs)
+        #self.fc4.__setattr__("bias",None) # biological plausability
+        self.lif6 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
 
         self.num_steps = opt.num_steps
 
@@ -108,13 +126,16 @@ class SpikingNet(torch.nn.Module):
 
         spk1, syn1, mem1 = self.lif1.init_rsynaptic()
         spk2, syn2, mem2 = self.lif2.init_rsynaptic()
-        mem3 = self.lif3.init_leaky()
+        spk3, syn3, mem3 = self.lif3.init_rsynaptic()
+        mem4 = self.lif4.init_leaky()
+        mem5 = self.lif5.init_leaky()
+        mem6 = self.lif6.init_leaky()
 
         # Record the spikes from the hidden layer (if needed)
         spk1_rec = [] # not necessarily needed for inference
         # Record the final layer
-        spk3_rec = []
-        mem3_rec = []
+        spk_out_rec = []
+        mem_out_rec = []
 
         if not time_first:
             #test = data
@@ -126,15 +147,30 @@ class SpikingNet(torch.nn.Module):
             ## Input layer
             cur1 = self.fc1(x[step])
 
-            ### Recurrent layer
+            ### Recurrent layers
             spk1, syn1, mem1 = self.lif1(cur1, spk1, syn1, mem1)
+
+            cur2 = self.fc2(spk1)
+            
             spk2, syn2, mem2 = self.lif2(cur2, spk2, syn2, mem2)
 
-            ### Output layer
-            cur2 = self.fc2(spk2)
-            spk3, mem3 = self.lif3(cur2, mem3)
+            cur3 = self.fc3(spk2)
+            
+            spk3, syn3, mem3 = self.lif3(cur3, spk3, syn3, mem3)
 
-            spk3_rec.append(spk3)
-            mem3_rec.append(mem3)
+            ### Output layers
+            cur4 = self.fc4(spk3)
+            spk4, mem4 = self.lif4(cur4, mem4)
 
-        return torch.stack(spk3_rec, dim=0), torch.stack(mem3_rec, dim=0)
+            cur5 = self.fc5(spk4)
+            spk5, mem5 = self.lif5(cur5, mem5)
+
+
+            cur6 = self.fc6(spk5)
+            spk6, mem6 = self.lif6(cur6, mem6)
+
+
+            spk_out_rec.append(spk6)
+            mem_out_rec.append(mem6)
+
+        return torch.stack(spk_out_rec, dim=0), torch.stack(mem_out_rec, dim=0)

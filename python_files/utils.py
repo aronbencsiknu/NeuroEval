@@ -67,15 +67,13 @@ def remove_unnecessary_packets(layer_name, source_core, idx, target_cores, buffe
 def dot_product(routing_matrices, spike_record, routing_map):
     packets = []
     exp = torch.mul(routing_matrices, spike_record)
-    #print(exp)
     temp = exp
     non_zero_values = temp[temp != 0]
 
     #print(non_zero_values)
 
     for hashes in non_zero_values:
-        packets.extend(routing_map[int(hashes)])
-
+        packets.append(routing_map[int(hashes)])
     return packets
 
 def init_network(net, sample_data):
@@ -83,7 +81,17 @@ def init_network(net, sample_data):
     try:
         _, _ = net(sample_data)
     except:
+        pass
+    
+    try:
         _, _ = net(sample_data)
+    except:
+        pass
+
+    try:
+        _, _ = net(sample_data)
+    except:
+        pass
 
     return net
 
