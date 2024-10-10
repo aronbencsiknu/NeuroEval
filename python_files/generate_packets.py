@@ -64,7 +64,7 @@ def snn_init(dut=None):
     seq_len = v.num_steps
     v.num_steps = seq_len
     batch_size = v.bs
-    input_f0 = 40. / 100.
+    input_f0 = 40. / 20.
     p_group = v.p_group
     n_cues = v.n_cues
     t_cue = v.t_cue
@@ -98,7 +98,6 @@ def snn_init(dut=None):
 
     routing_matrices = {}
     routing_map = {}
-    upstream_connectivity = {}
     upstream_cores= defaultdict(list)
 
     # construct dict layer_name: layer_size
@@ -130,14 +129,14 @@ def snn_init(dut=None):
                         target_cores.add(target_core)
 
             target_cores = list(target_cores)
-            upstream_cores[source_core] = []
-            for upstream_node in upstream_nodes:
-                if upstream_node != "input":
+            # upstream_cores[source_core] = []
+            # for upstream_node in upstream_nodes:
+            #     if upstream_node != "input":
                     
-                    for upstream_neuron_idx in range(mem_potential_dict[upstream_node]):
-                        upstream_core = mapping.neuron_to_core[upstream_node + "-" + str(upstream_neuron_idx)]
-                        # if source_core != upstream_core:
-                        upstream_cores[source_core].append(upstream_node + "-" + str(upstream_neuron_idx))
+            #         for upstream_neuron_idx in range(mem_potential_dict[upstream_node]):
+            #             #upstream_core = mapping.neuron_to_core[upstream_node + "-" + str(upstream_neuron_idx)]
+            #             # if source_core != upstream_core:
+            #             upstream_cores[source_core].append(upstream_node + "-" + str(upstream_neuron_idx))
 
 
             h = int(hashlib.shake_256(routing_id.encode()).hexdigest(2), 16)
@@ -145,11 +144,21 @@ def snn_init(dut=None):
             # for core, _ in target_cores:
             #     target_cores.append(core)
             #upstream_connectivity = upstream_cores
-            routing_map[h] = (layer_name + "-" + str(idx), source_core, target_cores, upstream_cores)
+            routing_map[h] = (layer_name + "-" + str(idx), source_core, target_cores)
             routing_matrix[idx] = h
             #print(layer_name, routing_map[h])
 
         routing_matrices[layer_name] = routing_matrix
+
+    upstream_cores= defaultdict(list)
+    for core in list(mapping.core_allocation.keys()):
+        for layer_name in mapping.core_allocation[core]:
+            upstream_nodes = list(gp.graph.predecessors(layer_name))
+            for node in upstream_nodes:
+                if node != "input":
+                    for upstream_neuron_idx in range(mem_potential_dict[node]):
+                        upstream_cores[core].append(node + "-" + str(upstream_neuron_idx))
+
 
     return net, routing_matrices, routing_map, mapping, train_set, val_set, max_accuracy, final_accuracy, metrics, upstream_cores
     
@@ -235,7 +244,7 @@ def delay_experiment(network, routing_matrices, routing_map, mapping, dataset, i
 
     for ts_idx, timestep in enumerate(packets):
         temp = {i: [] for i in range(v.num_cores)}
-        for idx, source_core, target_cores, _ in timestep:
+        for idx, source_core, target_cores in timestep:
             temp[source_core].append((idx, source_core, target_cores))
         for key in final_packets_dict:
             if key in temp:

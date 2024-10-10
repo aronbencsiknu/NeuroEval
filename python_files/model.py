@@ -36,9 +36,13 @@ class SpikingNet(torch.nn.Module):
         #self.fc4.__setattr__("bias",None) # biological plausability
         self.lif5 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
 
-        self.fc6 = nn.Linear(opt.num_hidden1, opt.num_outputs)
+        self.fc6 = nn.Linear(opt.num_hidden1, opt.num_hidden1)
         #self.fc4.__setattr__("bias",None) # biological plausability
         self.lif6 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
+
+        self.fc7 = nn.Linear(opt.num_hidden1, opt.num_outputs)
+        #self.fc4.__setattr__("bias",None) # biological plausability
+        self.lif7 = snn.Leaky(beta=0.9, spike_grad=spike_grad)
 
         self.num_steps = opt.num_steps
 
@@ -130,6 +134,7 @@ class SpikingNet(torch.nn.Module):
         mem4 = self.lif4.init_leaky()
         mem5 = self.lif5.init_leaky()
         mem6 = self.lif6.init_leaky()
+        mem7 = self.lif7.init_leaky()
 
         # Record the spikes from the hidden layer (if needed)
         spk1_rec = [] # not necessarily needed for inference
@@ -169,8 +174,11 @@ class SpikingNet(torch.nn.Module):
             cur6 = self.fc6(spk5)
             spk6, mem6 = self.lif6(cur6, mem6)
 
+            cur7 = self.fc7(spk6)
+            spk7, mem7 = self.lif7(cur7, mem7)
 
-            spk_out_rec.append(spk6)
-            mem_out_rec.append(mem6)
+
+            spk_out_rec.append(spk7)
+            mem_out_rec.append(mem7)
 
         return torch.stack(spk_out_rec, dim=0), torch.stack(mem_out_rec, dim=0)

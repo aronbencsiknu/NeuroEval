@@ -36,7 +36,7 @@ class Mapping:
         return sizes
     
     def map_neurons(self):
-        self.neuron_to_core = self._allocate_neurons_to_cores()
+        self.neuron_to_core, self.core_allocation = self._allocate_neurons_to_cores()
 
     def set_core_capacity(self, cc):
         self.core_capacity = cc
@@ -83,22 +83,31 @@ class Mapping:
                     #core_av[core_id] += 1
                 break
             else:  
+                switch = random.randint(0, self.core_capacity-1)
                 for neuron_id in range(0, num_neurons):
                     neuron_to_core[layer_name + "-" + str(neuron_id)] = core_id
                     neuron_counter+=1
-                    switch = random.random() < 1.0
-                    if core_av[core_id][0] >= self.core_capacity or (switch and not core_av[core_id][1]):
+                    
+                    if core_av[core_id][0] >= self.core_capacity or (neuron_id >= switch and not core_av[core_id][1]):
                         core_av[core_id][1] = True
 
                         available_cores = [core_id for core_id, value in core_av.items() if value[0] < self.core_capacity]
                         core_id = random.choice(available_cores)
                         core_av[core_id][0] += 1
+                        print("NEW CORE ID", layer_name, core_id, (neuron_id >= switch and not core_av[core_id][1]))
                     else:
                         core_av[core_id][0] += 1
+
+        core_allocation = {i: set() for i in range(v.num_cores)}
+        for layer_name, num_neurons in self.mem_potential_sizes.items():
+            for neuron_id in range(0, num_neurons):
+                core_allocation[neuron_to_core[layer_name + "-" + str(neuron_id)]].add(layer_name)
         print(self.core_capacity)
         print("COUNTER", neuron_counter)
         print(core_av)
-        return neuron_to_core
+        print("CORE ALLOCATION", core_allocation)
+
+        return neuron_to_core, core_allocation
     
     def map_buffers(self, indices_to_lock=None):
 
